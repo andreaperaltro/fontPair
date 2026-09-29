@@ -148,6 +148,14 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   flex-direction: column;
   gap: 0.25rem;
 }
+.lc-field-label { font-size: 0.8rem; }
+.lc-slider-row { display: flex; align-items: center; gap: 0.5rem; }
+.lc-slider-row input[type="range"] { flex: 1; min-width: 90px; }
+.lc-slider-val {
+  font-variant-numeric: tabular-nums;
+  min-width: 2.6em;
+  text-align: right;
+}
 .layer-controls select, .layer-controls input[type="color"] {
   font: inherit;
   color: var(--text);
@@ -235,6 +243,22 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   background: var(--bg);
   color: var(--text);
   font: inherit;
+}
+/* Custom dropdown arrow on every <select> — one minimal chevron, in the
+   current text color (so it stays legible in dark mode too), instead of
+   each browser's own inconsistent native one. */
+.layer-controls select,
+.control-group select,
+.fp-field select,
+.fp-google-weight-select,
+.fp-local-weight-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 1.9rem;
 }
 .fp-google-weight-block,
 .fp-local-weight-block {

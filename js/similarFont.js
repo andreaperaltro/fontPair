@@ -83,14 +83,26 @@ export function initSimilarFontTab(root) {
           <option value="stroke">Solo contorno</option>
         </select>
       </label>
-      <label class="lc-stroke-group" hidden>Spessore contorno: <span class="lc-stroke-val">${layer.strokeWidth}</span>
-        <input type="range" class="lc-stroke" min="0.5" max="6" step="0.5" value="${layer.strokeWidth}" />
+      <label class="lc-stroke-group" hidden>
+        <span class="lc-field-label">Spessore contorno</span>
+        <span class="lc-slider-row">
+          <input type="range" class="lc-stroke" min="0.5" max="6" step="0.5" value="${layer.strokeWidth}" />
+          <span class="lc-slider-val lc-stroke-val">${layer.strokeWidth}</span>
+        </span>
       </label>
-      <label>Opacità: <span class="lc-opacity-val">${layer.opacity}</span>
-        <input type="range" class="lc-opacity" min="0.1" max="1" step="0.05" value="${layer.opacity}" />
+      <label>
+        <span class="lc-field-label">Opacità</span>
+        <span class="lc-slider-row">
+          <input type="range" class="lc-opacity" min="0.1" max="1" step="0.05" value="${layer.opacity}" />
+          <span class="lc-slider-val lc-opacity-val">${layer.opacity}</span>
+        </span>
       </label>
-      <label>Letter-spacing: <span class="lc-spacing-val">${layer.letterSpacing}</span>em
-        <input type="range" class="lc-spacing" min="-0.05" max="0.5" step="0.01" value="${layer.letterSpacing}" />
+      <label>
+        <span class="lc-field-label">Spaziatura</span>
+        <span class="lc-slider-row">
+          <input type="range" class="lc-spacing" min="-0.05" max="0.5" step="0.01" value="${layer.letterSpacing}" />
+          <span class="lc-slider-val lc-spacing-val">${layer.letterSpacing}em</span>
+        </span>
       </label>
     `;
     col.appendChild(controls);
@@ -123,7 +135,7 @@ export function initSimilarFontTab(root) {
     });
     spacingInput.addEventListener('input', () => {
       layer.letterSpacing = Number(spacingInput.value);
-      spacingVal.textContent = layer.letterSpacing;
+      spacingVal.textContent = `${layer.letterSpacing}em`;
       render();
     });
 
