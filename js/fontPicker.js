@@ -90,6 +90,7 @@ export function createFontPicker({ label, onSelect, initial }) {
             <input type="range" class="fp-google-weight-slider" />
             <span class="fp-google-slider-val"></span>
           </div>
+          <div class="fp-google-slider-ticks" hidden></div>
           <label class="fp-google-italic-toggle" hidden>
             <input type="checkbox" class="fp-google-italic-checkbox" /> Corsivo
           </label>
@@ -162,6 +163,18 @@ export function createFontPicker({ label, onSelect, initial }) {
   const googleSliderRow = root.querySelector('.fp-google-slider-row');
   const googleWeightSlider = root.querySelector('.fp-google-weight-slider');
   const googleSliderVal = root.querySelector('.fp-google-slider-val');
+  const googleSliderTicks = root.querySelector('.fp-google-slider-ticks');
+  // The slider's value is always an INDEX into this array, never a raw
+  // weight — see openGoogleWeightStep() for why: Google's css2 API only
+  // reliably returns a genuine, distinct static instance for the standard
+  // 100-step weights it actually has (verified via fetchGoogleFontStyles);
+  // an arbitrary "off-grid" weight in between often silently comes back as
+  // the family's default instance instead, so honoring one would make the
+  // slider look broken (dragging it around would render the same glyphs).
+  // Restricting the slider to these confirmed-good stops keeps the UI a
+  // slider (continuous look, canonical stops) while every value it can
+  // land on is guaranteed to actually change the rendered weight.
+  let googleSliderSteps = [];
   const googleItalicToggle = root.querySelector('.fp-google-italic-toggle');
   const googleItalicCheckbox = root.querySelector('.fp-google-italic-checkbox');
 
@@ -177,6 +190,7 @@ export function createFontPicker({ label, onSelect, initial }) {
     googleWeightBlock.hidden = false;
     googleWeightSelect.hidden = true;
     googleSliderRow.hidden = true;
+    googleSliderTicks.hidden = true;
     googleItalicToggle.hidden = true;
     googleItalicCheckbox.checked = false;
     googleWeightStatus.textContent = 'Cerco i pesi disponibili…';
@@ -184,13 +198,24 @@ export function createFontPicker({ label, onSelect, initial }) {
       googleWeightStatus.textContent = '';
       googleItalicToggle.hidden = !info.hasItalic;
       if (info.variable) {
+        // Canonical stops only (see googleSliderSteps comment above) — the
+        // exact same weights fetchGoogleFontStyles() already confirmed
+        // exist for this family, sorted ascending.
+        googleSliderSteps = Array.from(new Set(info.discrete.filter((s) => !s.italic).map((s) => s.weight))).sort((a, b) => a - b);
+        if (googleSliderSteps.length === 0) googleSliderSteps = [info.min];
         googleSliderRow.hidden = false;
-        googleWeightSlider.min = info.min;
-        googleWeightSlider.max = info.max;
-        const startAt = info.min <= 400 && info.max >= 400 ? 400 : info.min;
-        googleWeightSlider.value = startAt;
-        googleSliderVal.textContent = startAt;
-        commitGoogle(startAt, false);
+        googleSliderTicks.hidden = false;
+        googleWeightSlider.min = 0;
+        googleWeightSlider.max = googleSliderSteps.length - 1;
+        googleWeightSlider.step = 1;
+        let startIdx = 0;
+        for (let i = 0; i < googleSliderSteps.length; i++) {
+          if (Math.abs(googleSliderSteps[i] - 400) < Math.abs(googleSliderSteps[startIdx] - 400)) startIdx = i;
+        }
+        googleWeightSlider.value = startIdx;
+        googleSliderVal.textContent = googleSliderSteps[startIdx];
+        googleSliderTicks.innerHTML = googleSliderSteps.map((w) => `<span>${w}</span>`).join('');
+        commitGoogle(googleSliderSteps[startIdx], false);
       } else {
         googleWeightSelect.hidden = false;
         googleWeightSelect.innerHTML = info.discrete
@@ -237,12 +262,15 @@ export function createFontPicker({ label, onSelect, initial }) {
     const [w, i] = googleWeightSelect.value.split('|');
     commitGoogle(Number(w), i === '1');
   });
-  googleWeightSlider.addEventListener('input', () => { googleSliderVal.textContent = googleWeightSlider.value; });
+  function sliderWeight() {
+    return googleSliderSteps[Number(googleWeightSlider.value)] ?? googleSliderSteps[0];
+  }
+  googleWeightSlider.addEventListener('input', () => { googleSliderVal.textContent = sliderWeight(); });
   googleWeightSlider.addEventListener('change', () => {
-    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked);
+    commitGoogle(sliderWeight(), googleItalicCheckbox.checked);
   });
   googleItalicCheckbox.addEventListener('change', () => {
-    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked);
+    commitGoogle(sliderWeight(), googleItalicCheckbox.checked);
   });
 
   // ---- Local fonts pane: family dropdown, then weight dropdown/slider ----

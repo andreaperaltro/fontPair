@@ -283,6 +283,17 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   min-width: 2.5em;
   text-align: right;
 }
+.fp-google-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.15rem;
+  padding: 0 2px;
+}
+.fp-google-slider-ticks span {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 .fp-google-italic-toggle {
   display: flex;
   align-items: center;
