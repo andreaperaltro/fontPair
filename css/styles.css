@@ -446,12 +446,25 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   font-weight: 600;
 }
 .role-assign button.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
-.role-size-field {
+.role-size-field,
+.role-spacing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.role-field-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+.role-field-row {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
 }
 .role-size-field input[type="number"],
 .role-spacing-field input[type="number"] {
@@ -462,13 +475,6 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   background: var(--surface);
   color: var(--text);
   font: inherit;
-}
-.role-spacing-field {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
 }
 .role-preview-col { min-width: 0; }
 .role-preview-text {

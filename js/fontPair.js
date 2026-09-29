@@ -127,11 +127,13 @@ export function initFontPairTab(root) {
             <button type="button" data-a>A</button>
             <button type="button" data-b>B</button>
           </div>
-          <label class="role-size-field">
-            <input type="number" class="role-size" min="8" max="140" value="${role.size}" />px
+          <label class="role-size-field" title="Dimensione del carattere">
+            <span class="role-field-label">Dimensione</span>
+            <span class="role-field-row"><input type="number" class="role-size" min="8" max="140" value="${role.size}" />px</span>
           </label>
-          <label class="role-spacing-field">
-            <input type="number" class="role-spacing" step="0.01" value="${role.letterSpacing ?? 0}" />em
+          <label class="role-spacing-field" title="Letter-spacing: spazio extra tra le lettere">
+            <span class="role-field-label">Spaziatura</span>
+            <span class="role-field-row"><input type="number" class="role-spacing" step="0.01" value="${role.letterSpacing ?? 0}" />em</span>
           </label>
         </div>
         <div class="role-preview-col">
