@@ -84,6 +84,26 @@ export function isLocalFontAccessSupported() {
   return typeof window !== 'undefined' && 'queryLocalFonts' in window;
 }
 
+/**
+ * Local Font Access is a persistent, per-origin permission (like camera or
+ * mic): once the person grants it, the browser remembers across reloads and
+ * future visits, and calling queryLocalFonts() again never re-prompts. This
+ * lets the UI skip the "consenti accesso" button entirely when it already
+ * knows the answer, instead of asking again every time.
+ * Returns 'granted' | 'denied' | 'prompt' — 'prompt' also covers browsers
+ * that don't expose this permission to the Permissions API at all.
+ */
+export async function getLocalFontsPermissionState() {
+  if (!isLocalFontAccessSupported()) return 'denied';
+  if (!navigator.permissions || !navigator.permissions.query) return 'prompt';
+  try {
+    const status = await navigator.permissions.query({ name: 'local-fonts' });
+    return status.state;
+  } catch {
+    return 'prompt';
+  }
+}
+
 export async function loadLocalFonts() {
   if (!isLocalFontAccessSupported()) {
     throw new Error('Local Font Access non è supportato in questo browser (usa Chrome o Edge).');
@@ -141,6 +161,44 @@ async function fetchGoogleFontFile(family, opts) {
   const fileRes = await fetch(preferred.url);
   if (!fileRes.ok) throw new Error(`Impossibile scaricare il file del font per "${family}".`);
   return fileRes.arrayBuffer();
+}
+
+const STANDARD_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+/**
+ * Asks Google Fonts which (weight, italic) combinations actually exist for a
+ * family, in a single request: the css2 API silently drops any combo that
+ * isn't available (rather than erroring), so requesting the full standard
+ * range and reading back which @font-face blocks came back tells us exactly
+ * what's real for this family — no separate metadata API (and no API key)
+ * needed.
+ */
+export async function fetchGoogleFontStyles(family) {
+  const combos = [];
+  for (const w of STANDARD_WEIGHTS) combos.push(`0,${w}`);
+  for (const w of STANDARD_WEIGHTS) combos.push(`1,${w}`);
+  const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:ital,wght@${combos.join(';')}&display=swap`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Google Fonts non ha una famiglia chiamata "${family}".`);
+  const cssText = await res.text();
+  const seen = new Set();
+  const styles = [];
+  const re = /@font-face\s*\{([^}]*)\}/g;
+  let m;
+  while ((m = re.exec(cssText))) {
+    const body = m[1];
+    const weightMatch = body.match(/font-weight:\s*(\d+)/);
+    if (!weightMatch) continue;
+    const weight = Number(weightMatch[1]);
+    const italic = /font-style:\s*italic/.test(body);
+    const key = `${weight}:${italic}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    styles.push({ weight, italic });
+  }
+  if (styles.length === 0) throw new Error(`Nessuno stile trovato per "${family}".`);
+  styles.sort((a, b) => a.weight - b.weight || Number(a.italic) - Number(b.italic));
+  return styles;
 }
 
 export function googleFontEntry(family, { weight = 400, italic = false } = {}) {

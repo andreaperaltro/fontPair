@@ -7,13 +7,33 @@
 import {
   isLocalFontAccessSupported,
   loadLocalFonts,
+  getLocalFontsPermissionState,
   loadGoogleFontsCatalog,
   googleFontEntry,
+  fetchGoogleFontStyles,
   uploadFontEntry,
 } from './fontSources.js';
 
+const WEIGHT_NAMES = {
+  100: 'Thin', 200: 'Extra-Light', 300: 'Light', 400: 'Regular',
+  500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'Extra-Bold', 900: 'Black',
+};
+
 // ---- shared state across every picker instance on the page ----
+// Local Font Access permission is granted once for the whole page, so every
+// picker (Font A, Font B, …) must reflect it immediately — not just the one
+// whose button happened to be clicked.
 let localFontsPromise = null;
+const localFontsListeners = new Set(); // fn(FontEntry[]) => void
+
+function ensureLocalFontsLoaded() {
+  if (!localFontsPromise) localFontsPromise = loadLocalFonts();
+  return localFontsPromise.then((fonts) => {
+    for (const fn of localFontsListeners) fn(fonts);
+    return fonts;
+  });
+}
+
 const uploadedFonts = []; // FontEntry[]
 const uploadedFontsListeners = new Set();
 
@@ -46,25 +66,19 @@ export function createFontPicker({ label, onSelect, initial }) {
       </div>
       <div class="fp-body">
         <div class="fp-pane fp-pane-google">
-          <input type="search" class="fp-search" placeholder="Cerca tra le famiglie…" />
-          <div class="fp-weight-row">
-            <label>Peso
-              <select class="fp-weight">
-                <option value="300">Light 300</option>
-                <option value="400" selected>Regular 400</option>
-                <option value="500">Medium 500</option>
-                <option value="600">SemiBold 600</option>
-                <option value="700">Bold 700</option>
-                <option value="800">ExtraBold 800</option>
-                <option value="900">Black 900</option>
-              </select>
-            </label>
-            <label><input type="checkbox" class="fp-italic" /> Corsivo</label>
+          <div class="fp-google-step-list">
+            <input type="search" class="fp-search" placeholder="Cerca tra le famiglie…" />
+            <div class="fp-list fp-google-list"></div>
+            <div class="fp-exact">
+              <input type="text" class="fp-exact-input" placeholder="…oppure scrivi il nome esatto di una famiglia Google Fonts" />
+              <button type="button" class="fp-exact-btn">Carica</button>
+            </div>
           </div>
-          <div class="fp-list fp-google-list"></div>
-          <div class="fp-exact">
-            <input type="text" class="fp-exact-input" placeholder="…oppure scrivi il nome esatto di una famiglia Google Fonts" />
-            <button type="button" class="fp-exact-btn">Carica</button>
+          <div class="fp-google-step-weight" hidden>
+            <button type="button" class="fp-back">‹ Cambia font</button>
+            <div class="fp-weight-family-name"></div>
+            <div class="fp-weight-status"></div>
+            <div class="fp-weight-grid"></div>
           </div>
         </div>
         <div class="fp-pane fp-pane-local" hidden>
@@ -103,7 +117,9 @@ export function createFontPicker({ label, onSelect, initial }) {
   }
 
   trigger.addEventListener('click', () => {
+    const opening = panel.hidden;
     panel.hidden = !panel.hidden;
+    if (opening) showGoogleListStep();
   });
   document.addEventListener('click', (e) => {
     if (!root.contains(e.target)) panel.hidden = true;
@@ -119,16 +135,10 @@ export function createFontPicker({ label, onSelect, initial }) {
     });
   });
 
-  // ---- Google Fonts pane ----
+  // ---- Google Fonts pane: step 1, pick a family ----
   const googleList = root.querySelector('.fp-google-list');
   const search = root.querySelector('.fp-search');
-  const weightSelect = root.querySelector('.fp-weight');
-  const italicCheckbox = root.querySelector('.fp-italic');
   let catalog = [];
-
-  function currentWeightOpts() {
-    return { weight: Number(weightSelect.value), italic: italicCheckbox.checked };
-  }
 
   function renderGoogleList(filter = '') {
     const q = filter.trim().toLowerCase();
@@ -141,20 +151,7 @@ export function createFontPicker({ label, onSelect, initial }) {
       item.type = 'button';
       item.className = 'fp-item';
       item.innerHTML = `<span>${f.family}</span><span class="fp-item-meta">${f.category}</span>`;
-      item.addEventListener('click', async () => {
-        item.disabled = true;
-        item.classList.add('loading');
-        try {
-          const entry = googleFontEntry(f.family, currentWeightOpts());
-          await entry.getArrayBuffer(); // fail fast if the family/weight can't be fetched
-          select(entry);
-        } catch (err) {
-          alert(`Impossibile caricare "${f.family}": ${err.message}`);
-        } finally {
-          item.disabled = false;
-          item.classList.remove('loading');
-        }
-      });
+      item.addEventListener('click', () => showGoogleWeightStep(f.family));
       googleList.appendChild(item);
     }
     if (matches.length === 0) {
@@ -168,29 +165,72 @@ export function createFontPicker({ label, onSelect, initial }) {
     renderGoogleList();
   });
   search.addEventListener('input', () => renderGoogleList(search.value));
-  weightSelect.addEventListener('change', () => renderGoogleList(search.value));
-  italicCheckbox.addEventListener('change', () => renderGoogleList(search.value));
 
   const exactInput = root.querySelector('.fp-exact-input');
   const exactBtn = root.querySelector('.fp-exact-btn');
-  async function loadExact() {
+  function loadExact() {
     const family = exactInput.value.trim();
-    if (!family) return;
-    exactBtn.disabled = true;
-    exactBtn.textContent = 'Carico…';
-    try {
-      const entry = googleFontEntry(family, currentWeightOpts());
-      await entry.getArrayBuffer();
-      select(entry);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      exactBtn.disabled = false;
-      exactBtn.textContent = 'Carica';
-    }
+    if (family) showGoogleWeightStep(family);
   }
   exactBtn.addEventListener('click', loadExact);
   exactInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadExact(); });
+
+  // ---- Google Fonts pane: step 2, pick a weight/style for that family ----
+  const stepList = root.querySelector('.fp-google-step-list');
+  const stepWeight = root.querySelector('.fp-google-step-weight');
+  const backBtn = root.querySelector('.fp-back');
+  const weightFamilyName = root.querySelector('.fp-weight-family-name');
+  const weightStatus = root.querySelector('.fp-weight-status');
+  const weightGrid = root.querySelector('.fp-weight-grid');
+
+  function showGoogleListStep() {
+    stepList.hidden = false;
+    stepWeight.hidden = true;
+  }
+
+  function showGoogleWeightStep(family) {
+    stepList.hidden = true;
+    stepWeight.hidden = false;
+    weightFamilyName.textContent = family;
+    weightGrid.innerHTML = '';
+    weightStatus.textContent = 'Cerco i pesi disponibili…';
+    fetchGoogleFontStyles(family)
+      .then((styles) => {
+        weightStatus.textContent = '';
+        renderWeightGrid(family, styles);
+      })
+      .catch((err) => {
+        weightStatus.textContent = err.message;
+      });
+  }
+
+  function renderWeightGrid(family, styles) {
+    weightGrid.innerHTML = '';
+    for (const { weight, italic } of styles) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'fp-weight-item';
+      const name = WEIGHT_NAMES[weight] || weight;
+      btn.textContent = `${name} ${weight}${italic ? ' · Corsivo' : ''}`;
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Carico…';
+        try {
+          const entry = googleFontEntry(family, { weight, italic });
+          await entry.getArrayBuffer();
+          select(entry);
+        } catch (err) {
+          alert(`Impossibile caricare "${family}": ${err.message}`);
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      });
+      weightGrid.appendChild(btn);
+    }
+  }
+
+  backBtn.addEventListener('click', showGoogleListStep);
 
   // ---- Local fonts pane ----
   const localList = root.querySelector('.fp-local-list');
@@ -216,15 +256,23 @@ export function createFontPicker({ label, onSelect, initial }) {
   if (!isLocalFontAccessSupported()) {
     localIntro.innerHTML = '<p>Il tuo browser non supporta l\'accesso ai font locali (Local Font Access API). Usa Chrome o Edge, oppure carica un file.</p>';
   } else {
+    function showLocalFonts(fonts) {
+      localFonts = fonts;
+      localIntro.hidden = true;
+      localSearch.hidden = false;
+      renderLocalList();
+    }
+    // Reused by every picker on the page: as soon as any of them loads the
+    // local font list (via the button below, or the auto-check further
+    // down), all the others pick it up too — no separate "consenti accesso"
+    // per column.
+    localFontsListeners.add(showLocalFonts);
+
     localGrantBtn.addEventListener('click', async () => {
       localGrantBtn.disabled = true;
       localGrantBtn.textContent = 'Attendo permesso…';
       try {
-        if (!localFontsPromise) localFontsPromise = loadLocalFonts();
-        localFonts = await localFontsPromise;
-        localIntro.hidden = true;
-        localSearch.hidden = false;
-        renderLocalList();
+        await ensureLocalFontsLoaded();
       } catch (err) {
         alert(err.message);
         localGrantBtn.disabled = false;
@@ -232,13 +280,22 @@ export function createFontPicker({ label, onSelect, initial }) {
       }
     });
     localSearch.addEventListener('input', () => renderLocalList(localSearch.value));
-    // If another picker already has permission, reuse it silently.
+
     if (localFontsPromise) {
-      localFontsPromise.then((fonts) => {
-        localFonts = fonts;
-        localIntro.hidden = true;
-        localSearch.hidden = false;
-        renderLocalList();
+      // Another picker already requested (or already has) access.
+      localFontsPromise.then(showLocalFonts);
+    } else {
+      // The browser remembers this permission across reloads/visits: if it
+      // was already granted earlier, skip the button and load straight away.
+      getLocalFontsPermissionState().then((state) => {
+        if (state !== 'granted') return;
+        localGrantBtn.disabled = true;
+        localGrantBtn.textContent = 'Carico i font locali…';
+        ensureLocalFontsLoaded().catch((err) => {
+          alert(err.message);
+          localGrantBtn.disabled = false;
+          localGrantBtn.textContent = 'Consenti accesso ai font locali';
+        });
       });
     }
   }
