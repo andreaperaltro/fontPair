@@ -2,10 +2,10 @@
 // Reusable "choose a font" widget: local system fonts, Google Fonts catalog,
 // or an uploaded file. Shared caches mean a font loaded from one picker
 // (local fonts list, uploaded files) is instantly available in every other
-// picker on the page. Font + weight are two separate dropdowns everywhere:
-// pick the family first, then a second control for the weight appears —
-// a plain <select> when the family only has fixed cuts, a slider when it's
-// genuinely variable (continuous weight axis).
+// picker on the page. Everything is inline and always visible — no
+// click-to-open panel: family and weight/style are two separate <select>
+// dropdowns, stacked top to bottom (the weight one appears once a family is
+// chosen), for every source (Google Fonts, local system fonts, uploads).
 
 import {
   isLocalFontAccessSupported,
@@ -59,86 +59,76 @@ function addUploadedFonts(entries) {
   notifyUploads();
 }
 
-let pickerIdCounter = 0;
-
 export function createFontPicker({ label, onSelect, initial }) {
-  const uid = `fp-${pickerIdCounter++}`;
   const root = document.createElement('div');
   root.className = 'font-picker';
   root.innerHTML = `
     <div class="font-picker-label">${label}</div>
-    <button type="button" class="font-picker-trigger" aria-haspopup="true">
-      <span class="fp-current">${initial || 'Scegli un font…'}</span>
-      <span class="fp-chevron">▾</span>
-    </button>
-    <div class="font-picker-panel" hidden>
-      <div class="fp-tabs">
-        <button type="button" class="fp-tab active" data-src="google">Google Fonts</button>
-        <button type="button" class="fp-tab" data-src="local">Font del sistema</button>
-        <button type="button" class="fp-tab" data-src="upload">Carica file</button>
+    <div class="fp-selected-summary" ${initial ? '' : 'hidden'}>${initial || ''}</div>
+    <div class="fp-tabs">
+      <button type="button" class="fp-tab active" data-src="google">Google Fonts</button>
+      <button type="button" class="fp-tab" data-src="local">Font del sistema</button>
+      <button type="button" class="fp-tab" data-src="upload">Carica file</button>
+    </div>
+    <div class="fp-body">
+      <div class="fp-pane fp-pane-google">
+        <div class="fp-field">
+          <label class="fp-field-label">Famiglia</label>
+          <select class="fp-google-family-select">
+            <option value="">Cerco famiglie…</option>
+          </select>
+        </div>
+        <div class="fp-exact">
+          <input type="text" class="fp-exact-input" placeholder="…oppure scrivi il nome esatto di una famiglia Google Fonts" />
+          <button type="button" class="fp-exact-btn">Carica</button>
+        </div>
+        <div class="fp-google-weight-block" hidden>
+          <label class="fp-field-label">Peso</label>
+          <div class="fp-google-weight-status"></div>
+          <select class="fp-google-weight-select" hidden></select>
+          <div class="fp-google-slider-row" hidden>
+            <input type="range" class="fp-google-weight-slider" />
+            <span class="fp-google-slider-val"></span>
+          </div>
+          <label class="fp-google-italic-toggle" hidden>
+            <input type="checkbox" class="fp-google-italic-checkbox" /> Corsivo
+          </label>
+        </div>
       </div>
-      <div class="fp-body">
-        <div class="fp-pane fp-pane-google">
+      <div class="fp-pane fp-pane-local" hidden>
+        <div class="fp-local-intro">
+          <p>Legge l'elenco dei font installati sul tuo computer (richiede Chrome o Edge).</p>
+          <button type="button" class="fp-local-grant">Consenti accesso ai font locali</button>
+        </div>
+        <div class="fp-local-controls" hidden>
           <div class="fp-field">
-            <label class="fp-field-label">Font</label>
-            <select class="fp-google-family-select">
-              <option value="">Cerco famiglie…</option>
+            <label class="fp-field-label">Famiglia</label>
+            <select class="fp-local-family-select">
+              <option value="">Scegli una famiglia…</option>
             </select>
           </div>
-          <div class="fp-exact">
-            <input type="text" class="fp-exact-input" placeholder="…oppure scrivi il nome esatto di una famiglia Google Fonts" />
-            <button type="button" class="fp-exact-btn">Carica</button>
-          </div>
-          <div class="fp-google-weight-block" hidden>
+          <div class="fp-local-weight-block" hidden>
             <label class="fp-field-label">Peso</label>
-            <div class="fp-google-weight-status"></div>
-            <select class="fp-google-weight-select" hidden></select>
-            <div class="fp-google-slider-row" hidden>
-              <input type="range" class="fp-google-weight-slider" />
-              <span class="fp-google-slider-val"></span>
-            </div>
-            <label class="fp-google-italic-toggle" hidden>
-              <input type="checkbox" class="fp-google-italic-checkbox" /> Corsivo
-            </label>
-          </div>
-        </div>
-        <div class="fp-pane fp-pane-local" hidden>
-          <div class="fp-local-intro">
-            <p>Legge l'elenco dei font installati sul tuo computer (richiede Chrome o Edge).</p>
-            <button type="button" class="fp-local-grant">Consenti accesso ai font locali</button>
-          </div>
-          <div class="fp-local-controls" hidden>
-            <div class="fp-field">
-              <label class="fp-field-label">Font</label>
-              <select class="fp-local-family-select">
-                <option value="">Scegli una famiglia…</option>
-              </select>
-            </div>
-            <div class="fp-local-weight-block" hidden>
-              <label class="fp-field-label">Peso</label>
-              <div class="fp-local-weight-status"></div>
-              <select class="fp-local-weight-select" hidden></select>
-              <div class="fp-local-slider-row" hidden>
-                <input type="range" class="fp-local-weight-slider" />
-                <span class="fp-local-slider-val"></span>
-              </div>
+            <div class="fp-local-weight-status"></div>
+            <select class="fp-local-weight-select" hidden></select>
+            <div class="fp-local-slider-row" hidden>
+              <input type="range" class="fp-local-weight-slider" />
+              <span class="fp-local-slider-val"></span>
             </div>
           </div>
         </div>
-        <div class="fp-pane fp-pane-upload" hidden>
-          <label class="fp-dropzone">
-            <input type="file" class="fp-file-input" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
-            Trascina un file font qui o clicca per scegliere (.ttf, .otf, .woff, .woff2)
-          </label>
-          <div class="fp-list fp-upload-list"></div>
-        </div>
+      </div>
+      <div class="fp-pane fp-pane-upload" hidden>
+        <label class="fp-dropzone">
+          <input type="file" class="fp-file-input" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+          Trascina un file font qui o clicca per scegliere (.ttf, .otf, .woff, .woff2)
+        </label>
+        <div class="fp-list fp-upload-list"></div>
       </div>
     </div>
   `;
 
-  const trigger = root.querySelector('.font-picker-trigger');
-  const panel = root.querySelector('.font-picker-panel');
-  const currentLabel = root.querySelector('.fp-current');
+  const summary = root.querySelector('.fp-selected-summary');
   const tabs = root.querySelectorAll('.fp-tab');
   const panes = {
     google: root.querySelector('.fp-pane-google'),
@@ -146,26 +136,11 @@ export function createFontPicker({ label, onSelect, initial }) {
     upload: root.querySelector('.fp-pane-upload'),
   };
 
-  // `close: false` is used for continuous controls (a weight slider, an
-  // italic checkbox next to it) so the person can keep adjusting — the panel
-  // only shuts on a deliberate discrete pick, or when they click elsewhere.
-  function select(entry, { close = true } = {}) {
-    currentLabel.textContent = entry.label;
+  function select(entry) {
+    summary.hidden = false;
+    summary.textContent = entry.label;
     onSelect(entry);
-    if (close) panel.hidden = true;
   }
-
-  trigger.addEventListener('click', () => {
-    const opening = panel.hidden;
-    panel.hidden = !panel.hidden;
-    if (opening) {
-      resetGoogleStep();
-      resetLocalStep();
-    }
-  });
-  document.addEventListener('click', (e) => {
-    if (!root.contains(e.target)) panel.hidden = true;
-  });
 
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -190,20 +165,12 @@ export function createFontPicker({ label, onSelect, initial }) {
   const googleItalicToggle = root.querySelector('.fp-google-italic-toggle');
   const googleItalicCheckbox = root.querySelector('.fp-google-italic-checkbox');
 
-  let catalog = [];
-  loadGoogleFontsCatalog().then((data) => {
-    catalog = data;
+  loadGoogleFontsCatalog().then((catalog) => {
     googleFamilySelect.innerHTML = '<option value="">Scegli una famiglia…</option>' +
       catalog.map((f) => `<option value="${escapeAttr(f.family)}">${f.family} — ${f.category}</option>`).join('');
   });
 
   let currentGoogleFamily = null;
-
-  function resetGoogleStep() {
-    currentGoogleFamily = null;
-    googleFamilySelect.value = '';
-    googleWeightBlock.hidden = true;
-  }
 
   function openGoogleWeightStep(family) {
     currentGoogleFamily = family;
@@ -223,7 +190,7 @@ export function createFontPicker({ label, onSelect, initial }) {
         const startAt = info.min <= 400 && info.max >= 400 ? 400 : info.min;
         googleWeightSlider.value = startAt;
         googleSliderVal.textContent = startAt;
-        commitGoogle(startAt, false, { close: false });
+        commitGoogle(startAt, false);
       } else {
         googleWeightSelect.hidden = false;
         googleWeightSelect.innerHTML = info.discrete
@@ -235,18 +202,18 @@ export function createFontPicker({ label, onSelect, initial }) {
           .reduce((best, s) => (Math.abs(s.weight - 400) < Math.abs(best.weight - 400) ? s : best));
         googleWeightSelect.value = `${preferred.weight}|${preferred.italic ? 1 : 0}`;
         const [w, i] = googleWeightSelect.value.split('|');
-        commitGoogle(Number(w), i === '1', { close: false });
+        commitGoogle(Number(w), i === '1');
       }
     }).catch((err) => {
       googleWeightStatus.textContent = err.message;
     });
   }
 
-  async function commitGoogle(weight, italic, opts) {
+  async function commitGoogle(weight, italic) {
     try {
       const entry = googleFontEntry(currentGoogleFamily, { weight, italic });
       await entry.getArrayBuffer();
-      select(entry, opts);
+      select(entry);
     } catch (err) {
       alert(`Impossibile caricare "${currentGoogleFamily}": ${err.message}`);
     }
@@ -268,14 +235,14 @@ export function createFontPicker({ label, onSelect, initial }) {
 
   googleWeightSelect.addEventListener('change', () => {
     const [w, i] = googleWeightSelect.value.split('|');
-    commitGoogle(Number(w), i === '1'); // a deliberate list pick — closes the panel
+    commitGoogle(Number(w), i === '1');
   });
   googleWeightSlider.addEventListener('input', () => { googleSliderVal.textContent = googleWeightSlider.value; });
   googleWeightSlider.addEventListener('change', () => {
-    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked, { close: false });
+    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked);
   });
   googleItalicCheckbox.addEventListener('change', () => {
-    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked, { close: false });
+    commitGoogle(Number(googleWeightSlider.value), googleItalicCheckbox.checked);
   });
 
   // ---- Local fonts pane: family dropdown, then weight dropdown/slider ----
@@ -291,14 +258,11 @@ export function createFontPicker({ label, onSelect, initial }) {
   const localSliderVal = root.querySelector('.fp-local-slider-val');
   let localFamilies = [];
 
-  function resetLocalStep() {
-    if (localIntro.hidden) localFamilySelect.value = '';
-    localWeightBlock.hidden = true;
-  }
-
   function renderLocalFamilySelect() {
+    const prev = localFamilySelect.value;
     localFamilySelect.innerHTML = '<option value="">Scegli una famiglia…</option>' +
       localFamilies.map((g) => `<option value="${escapeAttr(g.family)}">${g.family}</option>`).join('');
+    if (prev && localFamilies.some((g) => g.family === prev)) localFamilySelect.value = prev;
   }
 
   async function openLocalWeightStep(group) {
@@ -315,7 +279,7 @@ export function createFontPicker({ label, onSelect, initial }) {
         .map((entry, i) => `<option value="${i}">${entry.meta.style || entry.label}</option>`)
         .join('');
       localWeightSelect.onchange = () => select(group.entries[Number(localWeightSelect.value)]);
-      select(group.entries[0], { close: false });
+      select(group.entries[0]);
       return;
     }
 
@@ -334,7 +298,7 @@ export function createFontPicker({ label, onSelect, initial }) {
         const def = Math.round(axes.wght.default);
         localWeightSlider.value = def;
         localSliderVal.textContent = def;
-        applyLocalVariableWeight(entry, def, { close: false });
+        applyLocalVariableWeight(entry, def);
       } else {
         select(entry);
       }
@@ -344,13 +308,13 @@ export function createFontPicker({ label, onSelect, initial }) {
     }
   }
 
-  function applyLocalVariableWeight(entry, weight, opts) {
+  function applyLocalVariableWeight(entry, weight) {
     // Same underlying file for any weight on this axis — just tag which
     // instance was requested, so CSS-rendered text (Font Pair) can apply
     // font-variation-settings for a true live preview at that weight.
     entry.meta.variableWeight = weight;
     entry.label = `${entry.meta.family} · ${weight} (variabile)`;
-    select(entry, opts);
+    select(entry);
   }
 
   localFamilySelect.addEventListener('change', () => {
@@ -360,7 +324,7 @@ export function createFontPicker({ label, onSelect, initial }) {
   localWeightSlider.addEventListener('input', () => { localSliderVal.textContent = localWeightSlider.value; });
   localWeightSlider.addEventListener('change', () => {
     const group = localFamilies.find((g) => g.family === localFamilySelect.value);
-    if (group) applyLocalVariableWeight(group.entries[0], Number(localWeightSlider.value), { close: false });
+    if (group) applyLocalVariableWeight(group.entries[0], Number(localWeightSlider.value));
   });
 
   if (!isLocalFontAccessSupported()) {

@@ -186,32 +186,20 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 .control-group input[type="range"] { padding: 0; }
 
 /* --- Font picker widget --- */
-.font-picker { position: relative; }
+/* Always inline and visible — no click-to-open panel: pick the source tab,
+   then the family dropdown, then (once a family is chosen) the weight one
+   right below it. */
+.font-picker { }
 .font-picker-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.3rem; }
-.font-picker-trigger {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
+.fp-selected-summary {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
-.fp-chevron { color: var(--text-muted); }
-.font-picker-panel {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 6px);
-  left: 0;
-  width: min(420px, 90vw);
-  background: var(--surface);
+.fp-body {
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 0.75rem;
 }
 .fp-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
@@ -338,6 +326,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: auto;
 }
 .sf-placeholder { color: var(--text-muted); }
 .sf-placeholder.sf-error { color: var(--danger); }
@@ -345,12 +334,16 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   position: relative;
   isolation: isolate;
 }
+/* The SVG carries its own true-to-life width/height attributes (set from the
+   actual glyph size in px) — CSS only ever shrinks it down if it wouldn't
+   fit the stage (max-width: 100%), it never stretches a small one up to
+   fill the box. That keeps the size slider's number honest. */
 .overlay-layer {
   display: block;
   max-width: 100%;
   height: auto;
 }
-.sf-single .overlay-layer { width: min(90vw, 900px); }
+.sf-single .overlay-layer { max-height: 70vh; }
 .overlay-stack .overlay-layer:nth-child(2) {
   position: absolute;
   top: 0; left: 0;

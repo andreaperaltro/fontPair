@@ -16,6 +16,7 @@ export function initSimilarFontTab(root) {
     text: 'Hamburgefonstiv',
     glyphChar: 'g',
     fontSize: 220,
+    letterSpacing: 0,
     blend: 'multiply',
     layers: {
       A: defaultLayer('#e0342d', 1),
@@ -45,7 +46,11 @@ export function initSimilarFontTab(root) {
         </div>
         <div class="control-group">
           <label>Dimensione glifi: <span id="sf-size-val">220</span>px</label>
-          <input type="range" id="sf-size" min="40" max="600" value="220" />
+          <input type="range" id="sf-size" min="8" max="600" value="220" />
+        </div>
+        <div class="control-group">
+          <label>Letter-spacing: <span id="sf-spacing-val">0</span>em</label>
+          <input type="range" id="sf-spacing" min="-0.05" max="0.5" step="0.01" value="0" />
         </div>
         <div class="control-group">
           <label>Blend (tra i due font)</label>
@@ -130,6 +135,8 @@ export function initSimilarFontTab(root) {
   const glyphInput = root.querySelector('#sf-glyph');
   const sizeInput = root.querySelector('#sf-size');
   const sizeVal = root.querySelector('#sf-size-val');
+  const spacingInput = root.querySelector('#sf-spacing');
+  const spacingVal = root.querySelector('#sf-spacing-val');
   const blendSelect = root.querySelector('#sf-blend');
   const stage = root.querySelector('#sf-stage');
 
@@ -142,6 +149,7 @@ export function initSimilarFontTab(root) {
   textInput.addEventListener('input', () => { state.text = textInput.value; render(); });
   glyphInput.addEventListener('input', () => { state.glyphChar = glyphInput.value.slice(0, 1) || 'g'; render(); });
   sizeInput.addEventListener('input', () => { state.fontSize = Number(sizeInput.value); sizeVal.textContent = state.fontSize; render(); });
+  spacingInput.addEventListener('input', () => { state.letterSpacing = Number(spacingInput.value); spacingVal.textContent = state.letterSpacing; render(); });
   blendSelect.addEventListener('change', () => { state.blend = blendSelect.value; render(); });
 
   async function ensureOt() {
@@ -168,7 +176,7 @@ export function initSimilarFontTab(root) {
   function renderSingleOverlay(text, fontSize) {
     stage.innerHTML = '';
     const safeText = text && text.length ? text : ' ';
-    const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: safeText, fontSize });
+    const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: safeText, fontSize, letterSpacing: state.letterSpacing });
     styleOverlay(layerA, layerB);
     container.classList.add('sf-single');
     stage.appendChild(container);

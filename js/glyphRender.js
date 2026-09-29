@@ -28,14 +28,43 @@ export function el(tag, attrs = {}) {
 }
 
 /**
+ * Lays out a run of text manually (advance widths + kerning, like
+ * Font.getPath does internally) so extra letter-spacing can be inserted
+ * between glyphs — opentype.js's own getPath() has no such option.
+ * @param {opentype.Font} otFont
+ * @param {string} text
+ * @param {number} fontSize
+ * @param {number} letterSpacing - extra space between glyphs, in em (same convention as CSS letter-spacing)
+ */
+export function pathForRun(otFont, text, fontSize, letterSpacing = 0) {
+  const scale = fontSize / otFont.unitsPerEm;
+  const glyphs = otFont.stringToGlyphs(text);
+  const path = new opentype.Path();
+  let x = 0;
+  for (let i = 0; i < glyphs.length; i++) {
+    const glyph = glyphs[i];
+    if (i > 0) {
+      try { x += otFont.getKerningValue(glyphs[i - 1], glyph) * scale; } catch { /* ignore */ }
+    }
+    path.extend(glyph.getPath(x, 0, fontSize));
+    x += (glyph.advanceWidth || 0) * scale + letterSpacing * fontSize;
+  }
+  return path;
+}
+
+function layoutPath(otFont, text, fontSize, letterSpacing) {
+  return letterSpacing ? pathForRun(otFont, text, fontSize, letterSpacing) : otFont.getPath(text, 0, 0, fontSize);
+}
+
+/**
  * Builds an SVG <path> element for a single glyph or a run of text.
  * @param {opentype.Font} otFont
  * @param {string} text
  * @param {number} fontSize - in font units-independent px (opentype handles the scale)
- * @param {Object} style - { fill, stroke, strokeWidth, opacity }
+ * @param {Object} style - { fill, stroke, strokeWidth, opacity, letterSpacing }
  */
 export function pathFor(otFont, text, fontSize, style = {}) {
-  const otPath = otFont.getPath(text, 0, 0, fontSize);
+  const otPath = layoutPath(otFont, text, fontSize, style.letterSpacing || 0);
   const d = otPath.toPathData(2);
   const attrs = { d };
   if (style.stroke) {
@@ -50,8 +79,8 @@ export function pathFor(otFont, text, fontSize, style = {}) {
   return el('path', attrs);
 }
 
-export function boundingBoxFor(otFont, text, fontSize) {
-  const otPath = otFont.getPath(text, 0, 0, fontSize);
+export function boundingBoxFor(otFont, text, fontSize, letterSpacing = 0) {
+  const otPath = layoutPath(otFont, text, fontSize, letterSpacing);
   return otPath.getBoundingBox();
 }
 
@@ -61,9 +90,9 @@ export function boundingBoxFor(otFont, text, fontSize) {
  * Returns { container, svgA, svgB, width, height } so callers can restyle
  * (blend mode, colors, stroke) without re-laying-out.
  */
-export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24 }) {
-  const boxA = boundingBoxFor(fontA, text, fontSize);
-  const boxB = boundingBoxFor(fontB, text, fontSize);
+export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, letterSpacing = 0 }) {
+  const boxA = boundingBoxFor(fontA, text, fontSize, letterSpacing);
+  const boxB = boundingBoxFor(fontB, text, fontSize, letterSpacing);
   const x1 = Math.min(boxA.x1, boxB.x1);
   const y1 = Math.min(boxA.y1, boxB.y1);
   const x2 = Math.max(boxA.x2, boxB.x2);
@@ -76,9 +105,14 @@ export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24 }) {
   container.className = 'overlay-stack';
 
   const makeLayer = (font) => {
-    const svg = el('svg', { viewBox, preserveAspectRatio: 'xMidYMid meet' });
+    // Explicit pixel width/height (not a CSS-stretched size) so the on-screen
+    // result is the font's actual size at the chosen px value — truthful to
+    // the number on the slider, not auto-scaled to fill a fixed-size box.
+    // `max-width: 100%` in CSS still shrinks it down if it would overflow
+    // the stage, but never enlarges a small one to fill the space.
+    const svg = el('svg', { viewBox, preserveAspectRatio: 'xMidYMid meet', width: Math.round(width), height: Math.round(height) });
     svg.classList.add('overlay-layer');
-    const path = pathFor(font, text, fontSize);
+    const path = pathFor(font, text, fontSize, { letterSpacing });
     svg.appendChild(path);
     return { svg, path };
   };
