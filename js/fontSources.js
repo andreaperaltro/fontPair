@@ -6,6 +6,34 @@
 
 const otFontCache = new WeakMap();
 
+// ---------- WOFF2 → sfnt (opentype.js cannot parse WOFF2 directly) ----------
+// js/vendor/woff2-decompress.js defines a global `Module` (Emscripten build of
+// Google's own woff2 decoder) with a `.decompress(Uint8Array) -> Uint8Array`
+// method that becomes available once its WASM runtime finishes initializing.
+let _woff2ReadyPromise = null;
+function waitForWoff2Decoder() {
+  if (!_woff2ReadyPromise) {
+    _woff2ReadyPromise = new Promise((resolve, reject) => {
+      const mod = window.Module;
+      if (!mod) { reject(new Error('Decoder WOFF2 non caricato (js/vendor/woff2-decompress.js mancante).')); return; }
+      if (mod.calledRun) { resolve(mod); return; }
+      const prev = mod.onRuntimeInitialized;
+      mod.onRuntimeInitialized = () => { if (prev) prev(); resolve(mod); };
+    });
+  }
+  return _woff2ReadyPromise;
+}
+
+async function ensureSfnt(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const signature = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+  if (signature !== 'wOF2') return buffer; // already sfnt (or WOFF1, which opentype.js can read)
+  const mod = await waitForWoff2Decoder();
+  const result = mod.decompress(bytes);
+  if (result === false || !result) throw new Error('Decompressione WOFF2 fallita.');
+  return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength);
+}
+
 export class FontEntry {
   /**
    * @param {Object} opts
@@ -31,7 +59,8 @@ export class FontEntry {
   async getOpentypeFont() {
     const buf = await this.getArrayBuffer();
     if (otFontCache.has(buf)) return otFontCache.get(buf);
-    const font = opentype.parse(buf.slice(0));
+    const sfntBuf = await ensureSfnt(buf);
+    const font = opentype.parse(sfntBuf.slice(0));
     otFontCache.set(buf, font);
     return font;
   }
