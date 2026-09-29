@@ -123,6 +123,27 @@ export async function loadLocalFonts() {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
+/**
+ * queryLocalFonts() returns one entry per installed style (e.g. "PP Neue
+ * Montreal Hairline", "PP Neue Montreal Hairline Italic", "…Light", …) —
+ * useful for the raw list, but for a "pick the family, then the weight" UI
+ * we need them grouped back into families first.
+ */
+export function groupLocalFontsByFamily(entries) {
+  const map = new Map();
+  for (const entry of entries) {
+    const family = entry.meta.family || entry.label;
+    if (!map.has(family)) map.set(family, []);
+    map.get(family).push(entry);
+  }
+  return Array.from(map.entries())
+    .map(([family, styles]) => ({
+      family,
+      entries: styles.slice().sort((a, b) => a.meta.style.localeCompare(b.meta.style)),
+    }))
+    .sort((a, b) => a.family.localeCompare(b.family));
+}
+
 // ---------- Google Fonts ----------
 
 function buildCss2Url(family, { weight = 400, italic = false } = {}) {

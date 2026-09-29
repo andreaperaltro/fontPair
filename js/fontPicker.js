@@ -8,6 +8,7 @@ import {
   isLocalFontAccessSupported,
   loadLocalFonts,
   getLocalFontsPermissionState,
+  groupLocalFontsByFamily,
   loadGoogleFontsCatalog,
   googleFontEntry,
   fetchGoogleFontStyles,
@@ -86,8 +87,15 @@ export function createFontPicker({ label, onSelect, initial }) {
             <p>Legge l'elenco dei font installati sul tuo computer (richiede Chrome o Edge).</p>
             <button type="button" class="fp-local-grant">Consenti accesso ai font locali</button>
           </div>
-          <input type="search" class="fp-search-local" placeholder="Cerca…" hidden />
-          <div class="fp-list fp-local-list"></div>
+          <div class="fp-local-step-list" hidden>
+            <input type="search" class="fp-search-local" placeholder="Cerca…" />
+            <div class="fp-list fp-local-list"></div>
+          </div>
+          <div class="fp-local-step-style" hidden>
+            <button type="button" class="fp-local-back">‹ Cambia font</button>
+            <div class="fp-weight-family-name fp-local-family-name"></div>
+            <div class="fp-list fp-local-style-list"></div>
+          </div>
         </div>
         <div class="fp-pane fp-pane-upload" hidden>
           <label class="fp-dropzone">
@@ -119,7 +127,10 @@ export function createFontPicker({ label, onSelect, initial }) {
   trigger.addEventListener('click', () => {
     const opening = panel.hidden;
     panel.hidden = !panel.hidden;
-    if (opening) showGoogleListStep();
+    if (opening) {
+      showGoogleListStep();
+      showLocalListStep();
+    }
   });
   document.addEventListener('click', (e) => {
     if (!root.contains(e.target)) panel.hidden = true;
@@ -232,35 +243,63 @@ export function createFontPicker({ label, onSelect, initial }) {
 
   backBtn.addEventListener('click', showGoogleListStep);
 
-  // ---- Local fonts pane ----
+  // ---- Local fonts pane: step 1, pick a family ----
   const localList = root.querySelector('.fp-local-list');
   const localGrantBtn = root.querySelector('.fp-local-grant');
   const localIntro = root.querySelector('.fp-local-intro');
   const localSearch = root.querySelector('.fp-search-local');
-  let localFonts = [];
+  const localStepList = root.querySelector('.fp-local-step-list');
+  const localStepStyle = root.querySelector('.fp-local-step-style');
+  const localBackBtn = root.querySelector('.fp-local-back');
+  const localFamilyNameEl = root.querySelector('.fp-local-family-name');
+  const localStyleList = root.querySelector('.fp-local-style-list');
+  let localFamilies = [];
 
   function renderLocalList(filter = '') {
     const q = filter.trim().toLowerCase();
-    const matches = q ? localFonts.filter((f) => f.label.toLowerCase().includes(q)) : localFonts;
+    const matches = q ? localFamilies.filter((f) => f.family.toLowerCase().includes(q)) : localFamilies;
     localList.innerHTML = '';
-    for (const entry of matches.slice(0, 300)) {
+    for (const group of matches.slice(0, 300)) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'fp-item';
-      item.innerHTML = `<span>${entry.label}</span>`;
-      item.addEventListener('click', () => select(entry));
+      item.innerHTML = `<span>${group.family}</span>`;
+      item.addEventListener('click', () => showLocalStyleStep(group));
       localList.appendChild(item);
     }
   }
+
+  function showLocalListStep() {
+    if (!localIntro.hidden) return; // fonts not loaded yet — keep showing intro/button
+    localStepList.hidden = false;
+    localStepStyle.hidden = true;
+  }
+
+  function showLocalStyleStep(group) {
+    localStepList.hidden = true;
+    localStepStyle.hidden = false;
+    localFamilyNameEl.textContent = group.family;
+    localStyleList.innerHTML = '';
+    for (const entry of group.entries) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'fp-item';
+      item.innerHTML = `<span>${entry.meta.style || entry.label}</span>`;
+      item.addEventListener('click', () => select(entry));
+      localStyleList.appendChild(item);
+    }
+  }
+
+  localBackBtn.addEventListener('click', showLocalListStep);
 
   if (!isLocalFontAccessSupported()) {
     localIntro.innerHTML = '<p>Il tuo browser non supporta l\'accesso ai font locali (Local Font Access API). Usa Chrome o Edge, oppure carica un file.</p>';
   } else {
     function showLocalFonts(fonts) {
-      localFonts = fonts;
+      localFamilies = groupLocalFontsByFamily(fonts);
       localIntro.hidden = true;
-      localSearch.hidden = false;
       renderLocalList();
+      showLocalListStep();
     }
     // Reused by every picker on the page: as soon as any of them loads the
     // local font list (via the button below, or the auto-check further
