@@ -27,6 +27,12 @@
 
 * { box-sizing: border-box; }
 
+/* Elements with the `hidden` attribute must stay hidden even if another rule
+   (e.g. `.control-group { display: flex }`) also sets `display` on them —
+   author rules of equal/higher specificity otherwise win over the browser's
+   built-in `[hidden] { display: none }`, since both are author-origin here. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
