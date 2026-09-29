@@ -222,6 +222,58 @@ export async function fetchGoogleFontStyles(family) {
   return styles;
 }
 
+/** Lightweight existence probe: just the CSS response, not the font file itself. */
+async function probeGoogleCombo(family, weight, italic) {
+  const res = await fetch(buildCss2Url(family, { weight, italic }));
+  return res.ok;
+}
+
+/**
+ * Beyond the discrete cuts fetchGoogleFontStyles() finds, this checks whether
+ * the family is actually variable on Google's end: requesting an arbitrary,
+ * off-grid weight (e.g. 437) succeeds and returns a properly server-side
+ * instanced static file whenever the family's real variable axis covers it —
+ * see fetchGoogleFontFile(), which already accepts any integer weight. One
+ * extra CSS-only request (no font bytes) is enough to tell continuous
+ * families (a slider makes sense) from fixed-cut ones (a plain list of the
+ * weights that exist).
+ */
+export async function analyzeGoogleFontWeights(family) {
+  const discrete = await fetchGoogleFontStyles(family);
+  const uprightWeights = discrete.filter((s) => !s.italic).map((s) => s.weight);
+  const hasItalic = discrete.some((s) => s.italic);
+  if (uprightWeights.length === 0) {
+    return { discrete, variable: false, min: null, max: null, hasItalic };
+  }
+  const min = Math.min(...uprightWeights);
+  const max = Math.max(...uprightWeights);
+  let variable = false;
+  if (max - min >= 100) {
+    const probe = min + Math.round((max - min) / 20) * 10 + 5; // an off-grid midpoint
+    variable = await probeGoogleCombo(family, probe, false).catch(() => false);
+  }
+  return { discrete, variable, min, max, hasItalic };
+}
+
+/**
+ * Reads the fvar axes (if any) from an already-parsed opentype.js Font, so
+ * the UI can offer a weight slider for a genuinely variable local font file.
+ * Note: this vendored opentype.js build reads fvar (the axis definitions)
+ * but not gvar (the per-glyph interpolation data), so glyph *outlines*
+ * extracted via getOpentypeFont()/getPath() always come out at the font's
+ * built-in default instance regardless of the chosen weight — only CSS text
+ * rendering (via loadFontFace + font-variation-settings) reflects it exactly.
+ */
+export function getVariableAxes(otFont) {
+  const fvar = otFont && otFont.tables && otFont.tables.fvar;
+  if (!fvar || !Array.isArray(fvar.axes) || fvar.axes.length === 0) return null;
+  const axes = {};
+  for (const axis of fvar.axes) {
+    axes[axis.tag] = { min: axis.minValue, default: axis.defaultValue, max: axis.maxValue };
+  }
+  return axes;
+}
+
 export function googleFontEntry(family, { weight = 400, italic = false } = {}) {
   const styleLabel = `${weight}${italic ? ' Italic' : ''}`;
   return new FontEntry({

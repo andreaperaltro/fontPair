@@ -5,13 +5,13 @@ import { DEFAULT_CHARSET, supportedChars } from './glyphRender.js';
 // Standard type-scale pattern (~1.25 "major third" ratio, rounded to clean values).
 // Sizes stay editable per role — this is just the sensible starting point.
 const DEFAULT_ROLES = [
-  { id: 'eyebrow', name: 'Eyebrow / Overline', text: 'CATEGORIA', size: 12, assign: 'A', uppercase: true, spacing: '0.14em' },
-  { id: 'display', name: 'Display', text: 'Grande titolo', size: 48, assign: 'A' },
-  { id: 'title', name: 'Title (H1)', text: 'Un titolo che cattura l’attenzione', size: 32, assign: 'A' },
-  { id: 'subtitle', name: 'Subtitle (H2)', text: 'Un sottotitolo che spiega meglio il contesto', size: 20, assign: 'B' },
-  { id: 'body', name: 'Body', text: 'Questo è un paragrafo di prova per valutare la leggibilità dell’abbinamento tra i due font scelti, su più righe di testo continuo.', size: 16, assign: 'B' },
-  { id: 'caption', name: 'Caption', text: 'Didascalia o nota a piè di pagina', size: 13, assign: 'B' },
-  { id: 'button', name: 'Button / Label', text: 'SCOPRI DI PIÙ', size: 14, assign: 'A', uppercase: true, spacing: '0.06em' },
+  { id: 'eyebrow', name: 'Eyebrow / Overline', text: 'CATEGORIA', size: 12, assign: 'A', uppercase: true, letterSpacing: 0.14 },
+  { id: 'display', name: 'Display', text: 'Grande titolo', size: 48, assign: 'A', letterSpacing: 0 },
+  { id: 'title', name: 'Title (H1)', text: 'Un titolo che cattura l’attenzione', size: 32, assign: 'A', letterSpacing: 0 },
+  { id: 'subtitle', name: 'Subtitle (H2)', text: 'Un sottotitolo che spiega meglio il contesto', size: 20, assign: 'B', letterSpacing: 0 },
+  { id: 'body', name: 'Body', text: 'Questo è un paragrafo di prova per valutare la leggibilità dell’abbinamento tra i due font scelti, su più righe di testo continuo.', size: 16, assign: 'B', letterSpacing: 0 },
+  { id: 'caption', name: 'Caption', text: 'Didascalia o nota a piè di pagina', size: 13, assign: 'B', letterSpacing: 0 },
+  { id: 'button', name: 'Button / Label', text: 'SCOPRI DI PIÙ', size: 14, assign: 'A', uppercase: true, letterSpacing: 0.06 },
 ];
 
 export function initFontPairTab(root) {
@@ -74,6 +74,16 @@ export function initFontPairTab(root) {
     return assign === 'A' ? 'FP-FontA' : 'FP-FontB';
   }
 
+  // A local variable font is loaded as a single file covering a whole weight
+  // range; the picker tags the chosen point on that range as
+  // meta.variableWeight, and the browser's native variable-font support
+  // renders it exactly via this CSS property (no re-fetch needed per weight).
+  function variationFor(assign) {
+    const entry = assign === 'A' ? state.fontA : state.fontB;
+    const w = entry && entry.meta && entry.meta.variableWeight;
+    return w ? `'wght' ${w}` : 'normal';
+  }
+
   async function renderGlyphs() {
     glyphsEl.innerHTML = '<h3>Set di glifi</h3>';
     if (!state.fontA || !state.fontB) {
@@ -91,6 +101,7 @@ export function initFontPairTab(root) {
       const grid = document.createElement('div');
       grid.className = 'glyph-set';
       grid.style.fontFamily = `'${family}', sans-serif`;
+      grid.style.fontVariationSettings = entry.meta.variableWeight ? `'wght' ${entry.meta.variableWeight}` : 'normal';
       for (const ch of chars) {
         const cell = document.createElement('span');
         cell.className = 'glyph-cell';
@@ -119,6 +130,9 @@ export function initFontPairTab(root) {
           <label class="role-size-field">
             <input type="number" class="role-size" min="8" max="140" value="${role.size}" />px
           </label>
+          <label class="role-spacing-field">
+            <input type="number" class="role-spacing" step="0.01" value="${role.letterSpacing ?? 0}" />em
+          </label>
         </div>
         <div class="role-preview-col">
           <div class="role-preview-text" contenteditable="${ready}" spellcheck="false"></div>
@@ -127,19 +141,16 @@ export function initFontPairTab(root) {
       const btnA = band.querySelector('[data-a]');
       const btnB = band.querySelector('[data-b]');
       const sizeInput = band.querySelector('.role-size');
+      const spacingInput = band.querySelector('.role-spacing');
       const preview = band.querySelector('.role-preview-text');
       preview.textContent = role.text;
 
       function syncPreview() {
         preview.style.fontFamily = ready ? `'${familyFor(role.assign)}', sans-serif` : 'inherit';
+        preview.style.fontVariationSettings = ready ? variationFor(role.assign) : 'normal';
         preview.style.fontSize = `${role.size}px`;
-        if (role.uppercase) {
-          preview.style.textTransform = 'uppercase';
-          preview.style.letterSpacing = role.spacing || '0';
-        } else {
-          preview.style.textTransform = 'none';
-          preview.style.letterSpacing = 'normal';
-        }
+        preview.style.textTransform = role.uppercase ? 'uppercase' : 'none';
+        preview.style.letterSpacing = `${role.letterSpacing ?? 0}em`;
         btnA.classList.toggle('active', role.assign === 'A');
         btnB.classList.toggle('active', role.assign === 'B');
       }
@@ -147,6 +158,10 @@ export function initFontPairTab(root) {
       preview.addEventListener('input', () => { role.text = preview.textContent; });
       preview.addEventListener('blur', () => { if (!preview.textContent.trim()) { preview.textContent = role.text; } });
       sizeInput.addEventListener('input', () => { role.size = Number(sizeInput.value) || role.size; syncPreview(); });
+      spacingInput.addEventListener('input', () => {
+        role.letterSpacing = spacingInput.value === '' ? 0 : Number(spacingInput.value);
+        syncPreview();
+      });
       btnA.addEventListener('click', () => { role.assign = 'A'; syncPreview(); });
       btnB.addEventListener('click', () => { role.assign = 'B'; syncPreview(); });
 
@@ -186,10 +201,8 @@ export function initFontPairTab(root) {
       lines.push(`.${role.id} {`);
       lines.push(`  font-family: '${familyName}', sans-serif;`);
       lines.push(`  font-size: ${role.size}px;`);
-      if (role.uppercase) {
-        lines.push(`  text-transform: uppercase;`);
-        lines.push(`  letter-spacing: ${role.spacing || '0'};`);
-      }
+      if (role.uppercase) lines.push(`  text-transform: uppercase;`);
+      if (role.letterSpacing) lines.push(`  letter-spacing: ${role.letterSpacing}em;`);
       lines.push(`}`);
     }
     return lines.join('\n');
