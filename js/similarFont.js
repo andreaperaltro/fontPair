@@ -2,6 +2,10 @@
 import { createFontPicker } from './fontPicker.js';
 import { buildOverlay, applyLayerStyle, BLEND_MODES, DEFAULT_CHARSET, supportedChars } from './glyphRender.js';
 
+function defaultLayer(color, opacity) {
+  return { color, renderMode: 'fill', strokeWidth: 1.5, opacity };
+}
+
 export function initSimilarFontTab(root) {
   const state = {
     fontA: null,
@@ -12,18 +16,17 @@ export function initSimilarFontTab(root) {
     text: 'Hamburgefonstiv',
     glyphChar: 'g',
     fontSize: 220,
-    colorA: '#e0342d',
-    colorB: '#2f6fed',
     blend: 'multiply',
-    renderMode: 'fill',
-    strokeWidth: 1.5,
-    opacityB: 0.85,
+    layers: {
+      A: defaultLayer('#e0342d', 1),
+      B: defaultLayer('#2f6fed', 0.85),
+    },
   };
 
   root.innerHTML = `
     <div class="tab-toolbar">
-      <div class="font-pickers" id="sf-pickers"></div>
-      <div class="sf-controls">
+      <div class="sf-columns" id="sf-columns"></div>
+      <div class="sf-general">
         <div class="control-group">
           <label>Modalità</label>
           <select id="sf-mode">
@@ -41,33 +44,14 @@ export function initSimilarFontTab(root) {
           <input type="text" id="sf-glyph" maxlength="2" value="g" />
         </div>
         <div class="control-group">
-          <label>Dimensione: <span id="sf-size-val">220</span>px</label>
+          <label>Dimensione glifi: <span id="sf-size-val">220</span>px</label>
           <input type="range" id="sf-size" min="40" max="600" value="220" />
         </div>
         <div class="control-group">
-          <label>Resa</label>
-          <select id="sf-render-mode">
-            <option value="fill">Riempimento</option>
-            <option value="stroke">Solo contorno</option>
-          </select>
-        </div>
-        <div class="control-group" id="sf-stroke-group" hidden>
-          <label>Spessore contorno: <span id="sf-stroke-val">1.5</span></label>
-          <input type="range" id="sf-stroke" min="0.5" max="6" step="0.5" value="1.5" />
-        </div>
-        <div class="control-group">
-          <label>Blend</label>
+          <label>Blend (tra i due font)</label>
           <select id="sf-blend">
             ${BLEND_MODES.map((b) => `<option value="${b.value}" ${b.value === 'multiply' ? 'selected' : ''}>${b.label}</option>`).join('')}
           </select>
-        </div>
-        <div class="control-group colors">
-          <label>Colore A <input type="color" id="sf-colorA" value="#e0342d" /></label>
-          <label>Colore B <input type="color" id="sf-colorB" value="#2f6fed" /></label>
-        </div>
-        <div class="control-group">
-          <label>Opacità B: <span id="sf-opacity-val">0.85</span></label>
-          <input type="range" id="sf-opacity" min="0.1" max="1" step="0.05" value="0.85" />
         </div>
       </div>
     </div>
@@ -76,15 +60,68 @@ export function initSimilarFontTab(root) {
     </div>
   `;
 
-  const pickersEl = root.querySelector('#sf-pickers');
-  pickersEl.appendChild(createFontPicker({
-    label: 'Font A',
-    onSelect: (entry) => { state.fontA = entry; render(); },
-  }));
-  pickersEl.appendChild(createFontPicker({
-    label: 'Font B',
-    onSelect: (entry) => { state.fontB = entry; render(); },
-  }));
+  const columnsEl = root.querySelector('#sf-columns');
+
+  function buildLayerColumn(layerKey, label) {
+    const col = document.createElement('div');
+    col.className = 'sf-column';
+    const pickerWrap = document.createElement('div');
+    col.appendChild(pickerWrap);
+    pickerWrap.appendChild(createFontPicker({
+      label,
+      onSelect: (entry) => { state[layerKey === 'A' ? 'fontA' : 'fontB'] = entry; render(); },
+    }));
+
+    const layer = state.layers[layerKey];
+    const controls = document.createElement('div');
+    controls.className = 'layer-controls';
+    controls.innerHTML = `
+      <label>Colore <input type="color" class="lc-color" value="${layer.color}" /></label>
+      <label>Resa
+        <select class="lc-render">
+          <option value="fill">Riempimento</option>
+          <option value="stroke">Solo contorno</option>
+        </select>
+      </label>
+      <label class="lc-stroke-group" hidden>Spessore contorno: <span class="lc-stroke-val">${layer.strokeWidth}</span>
+        <input type="range" class="lc-stroke" min="0.5" max="6" step="0.5" value="${layer.strokeWidth}" />
+      </label>
+      <label>Opacità: <span class="lc-opacity-val">${layer.opacity}</span>
+        <input type="range" class="lc-opacity" min="0.1" max="1" step="0.05" value="${layer.opacity}" />
+      </label>
+    `;
+    col.appendChild(controls);
+
+    const colorInput = controls.querySelector('.lc-color');
+    const renderSelect = controls.querySelector('.lc-render');
+    const strokeGroup = controls.querySelector('.lc-stroke-group');
+    const strokeInput = controls.querySelector('.lc-stroke');
+    const strokeVal = controls.querySelector('.lc-stroke-val');
+    const opacityInput = controls.querySelector('.lc-opacity');
+    const opacityVal = controls.querySelector('.lc-opacity-val');
+
+    colorInput.addEventListener('input', () => { layer.color = colorInput.value; render(); });
+    renderSelect.addEventListener('change', () => {
+      layer.renderMode = renderSelect.value;
+      strokeGroup.hidden = layer.renderMode !== 'stroke';
+      render();
+    });
+    strokeInput.addEventListener('input', () => {
+      layer.strokeWidth = Number(strokeInput.value);
+      strokeVal.textContent = layer.strokeWidth;
+      render();
+    });
+    opacityInput.addEventListener('input', () => {
+      layer.opacity = Number(opacityInput.value);
+      opacityVal.textContent = layer.opacity;
+      render();
+    });
+
+    return col;
+  }
+
+  columnsEl.appendChild(buildLayerColumn('A', 'Font A'));
+  columnsEl.appendChild(buildLayerColumn('B', 'Font B'));
 
   const modeSelect = root.querySelector('#sf-mode');
   const textGroup = root.querySelector('#sf-text-group');
@@ -93,15 +130,7 @@ export function initSimilarFontTab(root) {
   const glyphInput = root.querySelector('#sf-glyph');
   const sizeInput = root.querySelector('#sf-size');
   const sizeVal = root.querySelector('#sf-size-val');
-  const renderModeSelect = root.querySelector('#sf-render-mode');
-  const strokeGroup = root.querySelector('#sf-stroke-group');
-  const strokeInput = root.querySelector('#sf-stroke');
-  const strokeVal = root.querySelector('#sf-stroke-val');
   const blendSelect = root.querySelector('#sf-blend');
-  const colorA = root.querySelector('#sf-colorA');
-  const colorB = root.querySelector('#sf-colorB');
-  const opacityInput = root.querySelector('#sf-opacity');
-  const opacityVal = root.querySelector('#sf-opacity-val');
   const stage = root.querySelector('#sf-stage');
 
   function syncModeVisibility() {
@@ -113,16 +142,7 @@ export function initSimilarFontTab(root) {
   textInput.addEventListener('input', () => { state.text = textInput.value; render(); });
   glyphInput.addEventListener('input', () => { state.glyphChar = glyphInput.value.slice(0, 1) || 'g'; render(); });
   sizeInput.addEventListener('input', () => { state.fontSize = Number(sizeInput.value); sizeVal.textContent = state.fontSize; render(); });
-  renderModeSelect.addEventListener('change', () => {
-    state.renderMode = renderModeSelect.value;
-    strokeGroup.hidden = state.renderMode !== 'stroke';
-    render();
-  });
-  strokeInput.addEventListener('input', () => { state.strokeWidth = Number(strokeInput.value); strokeVal.textContent = state.strokeWidth; render(); });
   blendSelect.addEventListener('change', () => { state.blend = blendSelect.value; render(); });
-  colorA.addEventListener('input', () => { state.colorA = colorA.value; render(); });
-  colorB.addEventListener('input', () => { state.colorB = colorB.value; render(); });
-  opacityInput.addEventListener('input', () => { state.opacityB = Number(opacityInput.value); opacityVal.textContent = state.opacityB; render(); });
 
   async function ensureOt() {
     if (!state.fontA || !state.fontB) return false;
@@ -137,8 +157,10 @@ export function initSimilarFontTab(root) {
   }
 
   function styleOverlay(layerA, layerB) {
-    applyLayerStyle(layerA.path, { mode: state.renderMode, color: state.colorA, opacity: 1, strokeWidth: state.strokeWidth });
-    applyLayerStyle(layerB.path, { mode: state.renderMode, color: state.colorB, opacity: state.opacityB, strokeWidth: state.strokeWidth });
+    const a = state.layers.A;
+    const b = state.layers.B;
+    applyLayerStyle(layerA.path, { mode: a.renderMode, color: a.color, opacity: a.opacity, strokeWidth: a.strokeWidth });
+    applyLayerStyle(layerB.path, { mode: b.renderMode, color: b.color, opacity: b.opacity, strokeWidth: b.strokeWidth });
     layerB.svg.style.mixBlendMode = state.blend;
     layerA.svg.style.mixBlendMode = 'normal';
   }
@@ -163,12 +185,13 @@ export function initSimilarFontTab(root) {
     }
     const grid = document.createElement('div');
     grid.className = 'sf-grid';
+    const tileSize = Math.max(50, Math.min(state.fontSize / 1.6, 160));
     for (const ch of shared) {
       const tile = document.createElement('button');
       tile.type = 'button';
       tile.className = 'sf-tile';
       tile.title = `${ch} — clic per ingrandire`;
-      const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: ch, fontSize: 90, padding: 10 });
+      const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: ch, fontSize: tileSize, padding: 10 });
       styleOverlay(layerA, layerB);
       tile.appendChild(container);
       tile.addEventListener('click', () => {

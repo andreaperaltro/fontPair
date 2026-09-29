@@ -2,14 +2,16 @@
 import { createFontPicker } from './fontPicker.js';
 import { DEFAULT_CHARSET, supportedChars } from './glyphRender.js';
 
+// Standard type-scale pattern (~1.25 "major third" ratio, rounded to clean values).
+// Sizes stay editable per role — this is just the sensible starting point.
 const DEFAULT_ROLES = [
-  { id: 'eyebrow', name: 'Eyebrow / Overline', text: 'CATEGORIA', size: 13, assign: 'A', uppercase: true, spacing: '0.14em' },
-  { id: 'display', name: 'Display', text: 'Grande titolo', size: 60, assign: 'A' },
-  { id: 'title', name: 'Title (H1)', text: 'Un titolo che cattura l’attenzione', size: 36, assign: 'A' },
-  { id: 'subtitle', name: 'Subtitle (H2)', text: 'Un sottotitolo che spiega meglio il contesto', size: 22, assign: 'B' },
+  { id: 'eyebrow', name: 'Eyebrow / Overline', text: 'CATEGORIA', size: 12, assign: 'A', uppercase: true, spacing: '0.14em' },
+  { id: 'display', name: 'Display', text: 'Grande titolo', size: 48, assign: 'A' },
+  { id: 'title', name: 'Title (H1)', text: 'Un titolo che cattura l’attenzione', size: 32, assign: 'A' },
+  { id: 'subtitle', name: 'Subtitle (H2)', text: 'Un sottotitolo che spiega meglio il contesto', size: 20, assign: 'B' },
   { id: 'body', name: 'Body', text: 'Questo è un paragrafo di prova per valutare la leggibilità dell’abbinamento tra i due font scelti, su più righe di testo continuo.', size: 16, assign: 'B' },
-  { id: 'caption', name: 'Caption / Small print', text: 'Didascalia o nota a piè di pagina', size: 12, assign: 'B' },
-  { id: 'button', name: 'Button / Label', text: 'SCOPRI DI PIÙ', size: 13, assign: 'A', uppercase: true, spacing: '0.06em' },
+  { id: 'caption', name: 'Caption', text: 'Didascalia o nota a piè di pagina', size: 13, assign: 'B' },
+  { id: 'button', name: 'Button / Label', text: 'SCOPRI DI PIÙ', size: 14, assign: 'A', uppercase: true, spacing: '0.06em' },
 ];
 
 export function initFontPairTab(root) {
@@ -32,11 +34,8 @@ export function initFontPairTab(root) {
       </section>
       <section class="fpair-section" id="fpair-scale">
         <h3>Scala tipografica</h3>
-        <div class="fpair-roles" id="fpair-roles-list"></div>
-      </section>
-      <section class="fpair-section" id="fpair-preview">
-        <h3>Anteprima</h3>
-        <div class="fpair-mock" id="fpair-mock"></div>
+        <p class="hint">Scala standard (rapporto ~1.25), pensata per leggersi come una pagina: cambia font e dimensione a sinistra, il testo a destra è modificabile direttamente.</p>
+        <div class="fpair-stack" id="fpair-stack"></div>
       </section>
       <section class="fpair-section">
         <button type="button" id="fpair-export">Copia CSS dell'abbinamento</button>
@@ -56,8 +55,7 @@ export function initFontPairTab(root) {
   }));
 
   const glyphsEl = root.querySelector('#fpair-glyphs');
-  const rolesListEl = root.querySelector('#fpair-roles-list');
-  const mockEl = root.querySelector('#fpair-mock');
+  const stackEl = root.querySelector('#fpair-stack');
   const exportBtn = root.querySelector('#fpair-export');
   const exportStatus = root.querySelector('#fpair-export-status');
 
@@ -105,75 +103,59 @@ export function initFontPairTab(root) {
     glyphsEl.appendChild(wrap);
   }
 
-  function renderRoles() {
-    rolesListEl.innerHTML = '';
+  function renderStack() {
+    stackEl.innerHTML = '';
+    const ready = Boolean(state.fontA && state.fontB);
     for (const role of state.roles) {
-      const row = document.createElement('div');
-      row.className = 'role-row';
-      row.innerHTML = `
-        <div class="role-head">
-          <strong>${role.name}</strong>
-          <span class="hint">${role.size}px</span>
-        </div>
-        <input type="text" class="role-text" value="${role.text.replace(/"/g, '&quot;')}" />
-        <div class="role-controls">
-          <label>Dimensione <input type="number" class="role-size" min="8" max="140" value="${role.size}" /></label>
+      const band = document.createElement('div');
+      band.className = 'role-band';
+      band.innerHTML = `
+        <div class="role-controls-col">
+          <div class="role-name">${role.name}</div>
           <div class="role-assign">
-            <button type="button" data-a class="${role.assign === 'A' ? 'active' : ''}">Font A</button>
-            <button type="button" data-b class="${role.assign === 'B' ? 'active' : ''}">Font B</button>
+            <button type="button" data-a>A</button>
+            <button type="button" data-b>B</button>
           </div>
+          <label class="role-size-field">
+            <input type="number" class="role-size" min="8" max="140" value="${role.size}" />px
+          </label>
         </div>
-        <div class="role-preview" style="font-family:'${familyFor(role.assign)}', sans-serif; font-size:${Math.min(role.size, 56)}px; ${role.uppercase ? `text-transform:uppercase; letter-spacing:${role.spacing || '0'};` : ''}">${role.text}</div>
+        <div class="role-preview-col">
+          <div class="role-preview-text" contenteditable="${ready}" spellcheck="false"></div>
+        </div>
       `;
-      const textInput = row.querySelector('.role-text');
-      const sizeInput = row.querySelector('.role-size');
-      const btnA = row.querySelector('[data-a]');
-      const btnB = row.querySelector('[data-b]');
-      const preview = row.querySelector('.role-preview');
+      const btnA = band.querySelector('[data-a]');
+      const btnB = band.querySelector('[data-b]');
+      const sizeInput = band.querySelector('.role-size');
+      const preview = band.querySelector('.role-preview-text');
+      preview.textContent = role.text;
 
       function syncPreview() {
-        preview.style.fontFamily = `'${familyFor(role.assign)}', sans-serif`;
-        preview.style.fontSize = `${Math.min(role.size, 56)}px`;
-        preview.textContent = role.text;
+        preview.style.fontFamily = ready ? `'${familyFor(role.assign)}', sans-serif` : 'inherit';
+        preview.style.fontSize = `${role.size}px`;
+        if (role.uppercase) {
+          preview.style.textTransform = 'uppercase';
+          preview.style.letterSpacing = role.spacing || '0';
+        } else {
+          preview.style.textTransform = 'none';
+          preview.style.letterSpacing = 'normal';
+        }
         btnA.classList.toggle('active', role.assign === 'A');
         btnB.classList.toggle('active', role.assign === 'B');
       }
 
-      textInput.addEventListener('input', () => { role.text = textInput.value; syncPreview(); renderMock(); });
-      sizeInput.addEventListener('input', () => {
-        role.size = Number(sizeInput.value);
-        row.querySelector('.role-head .hint').textContent = `${role.size}px`;
-        syncPreview();
-        renderMock();
-      });
-      btnA.addEventListener('click', () => { role.assign = 'A'; syncPreview(); renderMock(); });
-      btnB.addEventListener('click', () => { role.assign = 'B'; syncPreview(); renderMock(); });
+      preview.addEventListener('input', () => { role.text = preview.textContent; });
+      preview.addEventListener('blur', () => { if (!preview.textContent.trim()) { preview.textContent = role.text; } });
+      sizeInput.addEventListener('input', () => { role.size = Number(sizeInput.value) || role.size; syncPreview(); });
+      btnA.addEventListener('click', () => { role.assign = 'A'; syncPreview(); });
+      btnB.addEventListener('click', () => { role.assign = 'B'; syncPreview(); });
 
-      rolesListEl.appendChild(row);
+      syncPreview();
+      stackEl.appendChild(band);
     }
-  }
-
-  function renderMock() {
-    if (!state.fontA || !state.fontB) {
-      mockEl.innerHTML = '<p class="hint">Scegli due font per vedere l’anteprima combinata.</p>';
-      return;
+    if (!ready) {
+      stackEl.insertAdjacentHTML('afterbegin', '<p class="hint">Scegli due font per vedere l’anteprima combinata.</p>');
     }
-    mockEl.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'mock-card';
-    for (const role of state.roles) {
-      const line = document.createElement('div');
-      line.className = `mock-${role.id}`;
-      line.style.fontFamily = `'${familyFor(role.assign)}', sans-serif`;
-      line.style.fontSize = `${role.size}px`;
-      if (role.uppercase) {
-        line.style.textTransform = 'uppercase';
-        line.style.letterSpacing = role.spacing || '0';
-      }
-      line.textContent = role.text;
-      card.appendChild(line);
-    }
-    mockEl.appendChild(card);
   }
 
   function buildCssSnippet() {
@@ -227,10 +209,8 @@ export function initFontPairTab(root) {
 
   async function renderAll() {
     await renderGlyphs();
-    renderRoles();
-    renderMock();
+    renderStack();
   }
 
-  renderRoles();
-  renderMock();
+  renderStack();
 }

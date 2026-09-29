@@ -112,7 +112,47 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   .font-pickers { grid-template-columns: 1fr; }
 }
 
-.sf-controls {
+.sf-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) { .sf-columns { grid-template-columns: 1fr; } }
+.sf-column {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: var(--bg);
+}
+.layer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.layer-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.layer-controls select, .layer-controls input[type="color"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+}
+.layer-controls input[type="color"] { padding: 2px; width: 44px; height: 30px; }
+
+.sf-general {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem 1.5rem;
@@ -325,51 +365,67 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 }
 .glyph-cell:hover { background: var(--bg); }
 
-.role-row {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.8rem;
-  margin-bottom: 0.75rem;
-  display: grid;
-  gap: 0.5rem;
-}
-.role-head { display: flex; justify-content: space-between; font-size: 0.85rem; }
-.role-text {
-  font: inherit;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+.fpair-stack {
   background: var(--bg);
-  color: var(--text);
+  border-radius: 8px;
+  padding: 1.5rem 1.5rem 1.5rem 0;
 }
-.role-controls { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.5rem; }
-.role-controls input[type="number"] { width: 60px; margin-left: 0.3rem; padding: 0.2rem 0.3rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); }
-.role-assign { display: flex; gap: 0.3rem; }
+.role-band {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding: 0.5rem 0 0.5rem 1.5rem;
+}
+.role-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-top: 0.15em;
+  position: sticky;
+  top: 0.5rem;
+}
+.role-name { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.role-assign { display: flex; gap: 0.25rem; }
 .role-assign button {
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text-muted);
   border-radius: 6px;
-  padding: 0.3rem 0.7rem;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
   font-size: 0.8rem;
+  font-weight: 600;
 }
 .role-assign button.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
-.role-preview {
-  padding: 0.6rem;
-  border-radius: 6px;
-  background: var(--bg);
+.role-size-field {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.role-size-field input[type="number"] {
+  width: 52px;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.role-preview-col { min-width: 0; }
+.role-preview-text {
   overflow-wrap: anywhere;
+  outline: none;
+  border-radius: 4px;
+  padding: 0.1em 0.2em;
+  margin: -0.1em -0.2em;
 }
-
-.fpair-mock {
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 2rem;
-}
-.mock-card { max-width: 640px; margin: 0 auto; }
-.mock-card > div { margin-bottom: 0.6rem; }
-.mock-card .mock-body { line-height: 1.6; }
+.role-preview-text:hover { background: rgba(127,127,127,0.08); }
+.role-preview-text:focus { background: rgba(127,127,127,0.12); }
+#role-body-hint, .fpair-stack .hint { font-size: 0.8rem; }
 
 #fpair-export {
   border: 1px solid var(--border);
