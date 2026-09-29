@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>fontPair — similarity checker &amp; pairing tool</title>
+<meta name="description" content="Confronta font per somiglianza e crea abbinamenti tipografici, usando font locali, Google Fonts o file caricati." />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>fontPair</h1>
+    <p class="tagline">Similarity checker &amp; font pairing tool</p>
+    <p id="local-font-support" class="support-badge"></p>
+  </header>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="tab-similar">Similar Font</button>
+    <button class="tab-btn" data-tab="tab-pair">Font Pair</button>
+  </nav>
+
+  <main>
+    <section id="tab-similar" class="tab-panel active"></section>
+    <section id="tab-pair" class="tab-panel"></section>
+  </main>
+
+  <footer class="app-footer">
+    <p>
+      Font locali via <a href="https://developer.chrome.com/docs/capabilities/web-apis/local-fonts" target="_blank" rel="noopener">Local Font Access API</a> (solo Chrome/Edge) ·
+      Google Fonts caricati live · nessun font viene scaricato da foundry esterne.
+    </p>
+  </footer>
+
+  <script src="js/vendor/opentype.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
