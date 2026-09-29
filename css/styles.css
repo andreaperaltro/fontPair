@@ -341,12 +341,20 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 .overlay-layer {
   display: block;
   max-width: 100%;
+  max-height: 70vh;
   height: auto;
 }
-.sf-single .overlay-layer { max-height: 70vh; }
 .overlay-stack .overlay-layer:nth-child(2) {
   position: absolute;
   top: 0; left: 0;
+}
+/* Text too wide for the stage wraps onto several stacked comparison lines
+   (broken at the same letter for both fonts) instead of being shrunk. */
+.overlay-multiline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 .sf-grid {
   display: grid;

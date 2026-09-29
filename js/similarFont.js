@@ -3,7 +3,7 @@ import { createFontPicker } from './fontPicker.js';
 import { buildOverlay, applyLayerStyle, BLEND_MODES, DEFAULT_CHARSET, supportedChars } from './glyphRender.js';
 
 function defaultLayer(color, opacity) {
-  return { color, renderMode: 'fill', strokeWidth: 1.5, opacity };
+  return { color, renderMode: 'fill', strokeWidth: 1.5, opacity, letterSpacing: 0 };
 }
 
 export function initSimilarFontTab(root) {
@@ -16,7 +16,6 @@ export function initSimilarFontTab(root) {
     text: 'Hamburgefonstiv',
     glyphChar: 'g',
     fontSize: 220,
-    letterSpacing: 0,
     blend: 'multiply',
     layers: {
       A: defaultLayer('#e0342d', 1),
@@ -47,10 +46,6 @@ export function initSimilarFontTab(root) {
         <div class="control-group">
           <label>Dimensione glifi: <span id="sf-size-val">220</span>px</label>
           <input type="range" id="sf-size" min="8" max="600" value="220" />
-        </div>
-        <div class="control-group">
-          <label>Letter-spacing: <span id="sf-spacing-val">0</span>em</label>
-          <input type="range" id="sf-spacing" min="-0.05" max="0.5" step="0.01" value="0" />
         </div>
         <div class="control-group">
           <label>Blend (tra i due font)</label>
@@ -94,6 +89,9 @@ export function initSimilarFontTab(root) {
       <label>Opacità: <span class="lc-opacity-val">${layer.opacity}</span>
         <input type="range" class="lc-opacity" min="0.1" max="1" step="0.05" value="${layer.opacity}" />
       </label>
+      <label>Letter-spacing: <span class="lc-spacing-val">${layer.letterSpacing}</span>em
+        <input type="range" class="lc-spacing" min="-0.05" max="0.5" step="0.01" value="${layer.letterSpacing}" />
+      </label>
     `;
     col.appendChild(controls);
 
@@ -104,6 +102,8 @@ export function initSimilarFontTab(root) {
     const strokeVal = controls.querySelector('.lc-stroke-val');
     const opacityInput = controls.querySelector('.lc-opacity');
     const opacityVal = controls.querySelector('.lc-opacity-val');
+    const spacingInput = controls.querySelector('.lc-spacing');
+    const spacingVal = controls.querySelector('.lc-spacing-val');
 
     colorInput.addEventListener('input', () => { layer.color = colorInput.value; render(); });
     renderSelect.addEventListener('change', () => {
@@ -121,6 +121,11 @@ export function initSimilarFontTab(root) {
       opacityVal.textContent = layer.opacity;
       render();
     });
+    spacingInput.addEventListener('input', () => {
+      layer.letterSpacing = Number(spacingInput.value);
+      spacingVal.textContent = layer.letterSpacing;
+      render();
+    });
 
     return col;
   }
@@ -135,8 +140,6 @@ export function initSimilarFontTab(root) {
   const glyphInput = root.querySelector('#sf-glyph');
   const sizeInput = root.querySelector('#sf-size');
   const sizeVal = root.querySelector('#sf-size-val');
-  const spacingInput = root.querySelector('#sf-spacing');
-  const spacingVal = root.querySelector('#sf-spacing-val');
   const blendSelect = root.querySelector('#sf-blend');
   const stage = root.querySelector('#sf-stage');
 
@@ -149,7 +152,6 @@ export function initSimilarFontTab(root) {
   textInput.addEventListener('input', () => { state.text = textInput.value; render(); });
   glyphInput.addEventListener('input', () => { state.glyphChar = glyphInput.value.slice(0, 1) || 'g'; render(); });
   sizeInput.addEventListener('input', () => { state.fontSize = Number(sizeInput.value); sizeVal.textContent = state.fontSize; render(); });
-  spacingInput.addEventListener('input', () => { state.letterSpacing = Number(spacingInput.value); spacingVal.textContent = state.letterSpacing; render(); });
   blendSelect.addEventListener('change', () => { state.blend = blendSelect.value; render(); });
 
   async function ensureOt() {
@@ -164,20 +166,38 @@ export function initSimilarFontTab(root) {
     }
   }
 
-  function styleOverlay(layerA, layerB) {
+  // `layersA`/`layersB` are arrays — one entry per rendered line — since a
+  // long comparison can wrap onto several stacked overlay lines.
+  function styleOverlay(layersA, layersB) {
     const a = state.layers.A;
     const b = state.layers.B;
-    applyLayerStyle(layerA.path, { mode: a.renderMode, color: a.color, opacity: a.opacity, strokeWidth: a.strokeWidth });
-    applyLayerStyle(layerB.path, { mode: b.renderMode, color: b.color, opacity: b.opacity, strokeWidth: b.strokeWidth });
-    layerB.svg.style.mixBlendMode = state.blend;
-    layerA.svg.style.mixBlendMode = 'normal';
+    for (const layerA of layersA) {
+      applyLayerStyle(layerA.path, { mode: a.renderMode, color: a.color, opacity: a.opacity, strokeWidth: a.strokeWidth });
+      layerA.svg.style.mixBlendMode = 'normal';
+    }
+    for (const layerB of layersB) {
+      applyLayerStyle(layerB.path, { mode: b.renderMode, color: b.color, opacity: b.opacity, strokeWidth: b.strokeWidth });
+      layerB.svg.style.mixBlendMode = state.blend;
+    }
   }
 
   function renderSingleOverlay(text, fontSize) {
     stage.innerHTML = '';
     const safeText = text && text.length ? text : ' ';
-    const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: safeText, fontSize, letterSpacing: state.letterSpacing });
-    styleOverlay(layerA, layerB);
+    // Wrap onto more lines instead of shrinking the text to fit — using
+    // whichever font is wider to decide where each line breaks, so both
+    // fonts wrap at the same letter even if their own widths differ.
+    const maxWidth = Math.max((stage.clientWidth || 900) - 64, 120);
+    const { container, layersA, layersB } = buildOverlay({
+      fontA: state.otA,
+      fontB: state.otB,
+      text: safeText,
+      fontSize,
+      letterSpacingA: state.layers.A.letterSpacing,
+      letterSpacingB: state.layers.B.letterSpacing,
+      maxWidth,
+    });
+    styleOverlay(layersA, layersB);
     container.classList.add('sf-single');
     stage.appendChild(container);
   }
@@ -199,8 +219,16 @@ export function initSimilarFontTab(root) {
       tile.type = 'button';
       tile.className = 'sf-tile';
       tile.title = `${ch} — clic per ingrandire`;
-      const { container, layerA, layerB } = buildOverlay({ fontA: state.otA, fontB: state.otB, text: ch, fontSize: tileSize, padding: 10 });
-      styleOverlay(layerA, layerB);
+      const { container, layersA, layersB } = buildOverlay({
+        fontA: state.otA,
+        fontB: state.otB,
+        text: ch,
+        fontSize: tileSize,
+        padding: 10,
+        letterSpacingA: state.layers.A.letterSpacing,
+        letterSpacingB: state.layers.B.letterSpacing,
+      });
+      styleOverlay(layersA, layersB);
       tile.appendChild(container);
       tile.addEventListener('click', () => {
         state.mode = 'glyph';
