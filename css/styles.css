@@ -88,6 +88,9 @@ body {
 }
 
 main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+@media (min-width: 1440px) {
+  main { max-width: 1680px; }
+}
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
@@ -192,6 +195,44 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 }
 .control-group input[type="color"] { padding: 2px; width: 44px; height: 32px; }
 .control-group input[type="range"] { padding: 0; }
+.control-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text) !important;
+  cursor: pointer;
+}
+.control-check input[type="checkbox"] {
+  all: revert;
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* --- Similar Font: wide-viewport layout --- */
+/* Below the breakpoint, toolbar (controls) above stage (preview) — unchanged
+   from before. From it, a sidebar + preview arrangement so a wide desktop
+   screen gives the glyph comparison (and curve-zoom) far more room instead
+   of sitting narrow and centered in a sea of empty margin. */
+.sf-layout { display: block; }
+@media (min-width: 1100px) {
+  .sf-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 400px) 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .sf-layout .tab-toolbar {
+    margin-bottom: 0;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+  /* The sidebar is narrower than the old full-width toolbar, so Font A/B
+     stack vertically here instead of squeezing two columns side by side. */
+  .sf-layout .sf-columns { grid-template-columns: 1fr; }
+}
 
 /* --- Font picker widget --- */
 /* Always inline and visible — no click-to-open panel: pick the source tab,
@@ -379,6 +420,22 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   max-height: 70vh;
   height: auto;
 }
+/* Zoom (> 100%) exists to inspect Bézier points up close, so it must be
+   allowed to actually exceed the stage — the usual shrink-to-fit clamp
+   above would otherwise just scale it right back down to nothing. The
+   stage's own `overflow: auto` turns the excess into a scrollable area. */
+.sf-stage.sf-zoomed .overlay-layer {
+  max-width: none;
+  max-height: none;
+}
+/* Centered flex content that overflows its box can clip the start edge
+   instead of scrolling to it in some browsers — switch to top-left so the
+   whole zoomed-in glyph is reliably reachable by scrolling. */
+.sf-stage.sf-zoomed {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.bezier-overlay { pointer-events: none; }
 .overlay-stack .overlay-layer:nth-child(2) {
   position: absolute;
   top: 0; left: 0;

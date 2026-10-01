@@ -56,6 +56,85 @@ function layoutPath(otFont, text, fontSize, letterSpacing) {
   return letterSpacing ? pathForRun(otFont, text, fontSize, letterSpacing) : otFont.getPath(text, 0, 0, fontSize);
 }
 
+/**
+ * Walks an opentype.js Path's own command list (M/L/Q/C/Z — the same data
+ * its SVG `d` string is built from) and separates it into the three things a
+ * font editor's "show points" view draws: on-curve anchor points, off-curve
+ * (Bézier control) points, and the handle line segments connecting each
+ * control point to its neighboring anchor.
+ */
+export function extractCurvePoints(otPath) {
+  const onCurve = [];
+  const offCurve = [];
+  const handles = []; // [ [anchorPoint, controlPoint], ... ]
+  let cur = null;
+  let start = null;
+  for (const cmd of otPath.commands) {
+    if (cmd.type === 'M') {
+      cur = { x: cmd.x, y: cmd.y };
+      start = cur;
+      onCurve.push(cur);
+    } else if (cmd.type === 'L') {
+      cur = { x: cmd.x, y: cmd.y };
+      onCurve.push(cur);
+    } else if (cmd.type === 'Q') {
+      const c1 = { x: cmd.x1, y: cmd.y1 };
+      const end = { x: cmd.x, y: cmd.y };
+      offCurve.push(c1);
+      if (cur) handles.push([cur, c1]);
+      handles.push([end, c1]);
+      onCurve.push(end);
+      cur = end;
+    } else if (cmd.type === 'C') {
+      const c1 = { x: cmd.x1, y: cmd.y1 };
+      const c2 = { x: cmd.x2, y: cmd.y2 };
+      const end = { x: cmd.x, y: cmd.y };
+      offCurve.push(c1, c2);
+      if (cur) handles.push([cur, c1]);
+      handles.push([end, c2]);
+      onCurve.push(end);
+      cur = end;
+    } else if (cmd.type === 'Z') {
+      cur = start;
+    }
+  }
+  return { onCurve, offCurve, handles };
+}
+
+/**
+ * Builds an SVG <g> drawing the classic "show points" overlay for a glyph
+ * path: hollow squares on the on-curve anchors, filled dots on the Bézier
+ * control points, thin lines for their handles — the same breakdown
+ * FontForge/Glyphs/the opentype.js glyph-inspector demo draw. Uses
+ * `currentColor` throughout, so a caller tints the whole thing just by
+ * setting `.style.color` on the returned element (or an ancestor). Marker
+ * sizes scale with `fontSize` so they stay legible — and proportionate —
+ * at any render size, from a small comparison glyph to a heavily zoomed-in one.
+ */
+export function buildCurveMarkers(otPath, fontSize) {
+  const { onCurve, offCurve, handles } = extractCurvePoints(otPath);
+  const g = el('g', { class: 'bezier-overlay' });
+  const dot = Math.max(fontSize * 0.016, 2.4);
+  const sq = dot * 1.3;
+  const lineW = Math.max(fontSize * 0.0035, 0.6);
+  for (const [a, b] of handles) {
+    g.appendChild(el('line', {
+      x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      stroke: 'currentColor', 'stroke-width': lineW, 'stroke-opacity': 0.55,
+    }));
+  }
+  for (const p of offCurve) {
+    g.appendChild(el('circle', { cx: p.x, cy: p.y, r: dot, fill: 'currentColor', 'fill-opacity': 0.9 }));
+  }
+  for (const p of onCurve) {
+    g.appendChild(el('rect', {
+      x: p.x - sq, y: p.y - sq, width: sq * 2, height: sq * 2,
+      fill: 'white', stroke: 'currentColor', 'stroke-width': lineW * 1.8,
+    }));
+  }
+  return g;
+}
+
 /** Per-character advance widths (glyph width + kerning + letter-spacing), in px. */
 function glyphAdvances(otFont, text, fontSize, letterSpacing = 0) {
   const scale = fontSize / otFont.unitsPerEm;
@@ -149,10 +228,11 @@ export function boundingBoxFor(otFont, text, fontSize, letterSpacing = 0) {
  * broken at the same character position for both fonts, so the two stay
  * comparable line by line, one `.overlay-stack` (a two-layer pair) per line.
  * Returns { container, layersA, layersB } — arrays (one entry per line) of
- * { svg, path } — so callers can restyle (blend mode, colors, stroke)
- * without re-laying-out.
+ * { svg, path, curveGroup } — so callers can restyle (blend mode, colors,
+ * stroke, curve-marker tint) without re-laying-out. `curveGroup` is only
+ * present when `showCurves` is true.
  */
-export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, letterSpacingA = 0, letterSpacingB = 0, maxWidth = 0 }) {
+export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, letterSpacingA = 0, letterSpacingB = 0, maxWidth = 0, showCurves = false }) {
   const lines = computeSharedLines({ fontA, fontB, text, fontSize, letterSpacingA, letterSpacingB, maxWidth });
   const multiline = lines.length > 1;
 
@@ -188,9 +268,15 @@ export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, lette
       // if it would overflow the stage, but never enlarges a small one.
       const svg = el('svg', { viewBox, preserveAspectRatio: 'xMidYMid meet', width: Math.round(width), height: Math.round(height) });
       svg.classList.add('overlay-layer');
-      const path = pathFor(font, safe, fontSize, { letterSpacing });
+      const otPath = layoutPath(font, safe, fontSize, letterSpacing);
+      const path = el('path', { d: otPath.toPathData(2) });
       svg.appendChild(path);
-      return { svg, path };
+      let curveGroup = null;
+      if (showCurves) {
+        curveGroup = buildCurveMarkers(otPath, fontSize);
+        svg.appendChild(curveGroup);
+      }
+      return { svg, path, curveGroup };
     };
 
     const layerA = makeLayer(fontA, letterSpacingA);

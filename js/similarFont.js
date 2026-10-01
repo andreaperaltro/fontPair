@@ -17,6 +17,8 @@ export function initSimilarFontTab(root) {
     glyphChar: 'g',
     fontSize: 220,
     blend: 'multiply',
+    showCurves: false,
+    zoom: 1,
     layers: {
       A: defaultLayer('#e0342d', 1),
       B: defaultLayer('#2f6fed', 0.85),
@@ -24,39 +26,48 @@ export function initSimilarFontTab(root) {
   };
 
   root.innerHTML = `
-    <div class="tab-toolbar">
-      <div class="sf-columns" id="sf-columns"></div>
-      <div class="sf-general">
-        <div class="control-group">
-          <label>Modalità</label>
-          <select id="sf-mode">
-            <option value="word">Parola personalizzata</option>
-            <option value="glyph">Glifo singolo</option>
-            <option value="all">Tutti i glifi</option>
-          </select>
-        </div>
-        <div class="control-group" id="sf-text-group">
-          <label>Testo</label>
-          <input type="text" id="sf-text" value="Hamburgefonstiv" />
-        </div>
-        <div class="control-group" id="sf-glyph-group" hidden>
-          <label>Carattere</label>
-          <input type="text" id="sf-glyph" maxlength="2" value="g" />
-        </div>
-        <div class="control-group">
-          <label>Dimensione glifi: <span id="sf-size-val">220</span>px</label>
-          <input type="range" id="sf-size" min="8" max="600" value="220" />
-        </div>
-        <div class="control-group">
-          <label>Blend (tra i due font)</label>
-          <select id="sf-blend">
-            ${BLEND_MODES.map((b) => `<option value="${b.value}" ${b.value === 'multiply' ? 'selected' : ''}>${b.label}</option>`).join('')}
-          </select>
+    <div class="sf-layout">
+      <div class="tab-toolbar">
+        <div class="sf-columns" id="sf-columns"></div>
+        <div class="sf-general">
+          <div class="control-group">
+            <label>Modalità</label>
+            <select id="sf-mode">
+              <option value="word">Parola personalizzata</option>
+              <option value="glyph">Glifo singolo</option>
+              <option value="all">Tutti i glifi</option>
+            </select>
+          </div>
+          <div class="control-group" id="sf-text-group">
+            <label>Testo</label>
+            <input type="text" id="sf-text" value="Hamburgefonstiv" />
+          </div>
+          <div class="control-group" id="sf-glyph-group" hidden>
+            <label>Carattere</label>
+            <input type="text" id="sf-glyph" maxlength="2" value="g" />
+          </div>
+          <div class="control-group">
+            <label>Dimensione glifi: <span id="sf-size-val">220</span>px</label>
+            <input type="range" id="sf-size" min="8" max="600" value="220" />
+          </div>
+          <div class="control-group">
+            <label>Blend (tra i due font)</label>
+            <select id="sf-blend">
+              ${BLEND_MODES.map((b) => `<option value="${b.value}" ${b.value === 'multiply' ? 'selected' : ''}>${b.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="control-group" id="sf-curves-group">
+            <label class="control-check"><input type="checkbox" id="sf-curves" /> Mostra curve di Bézier</label>
+          </div>
+          <div class="control-group" id="sf-zoom-group">
+            <label>Zoom: <span id="sf-zoom-val">100</span>%</label>
+            <input type="range" id="sf-zoom" min="0.5" max="6" step="0.1" value="1" />
+          </div>
         </div>
       </div>
-    </div>
-    <div class="sf-stage" id="sf-stage">
-      <p class="sf-placeholder">Scegli due font per iniziare il confronto.</p>
+      <div class="sf-stage" id="sf-stage">
+        <p class="sf-placeholder">Scegli due font per iniziare il confronto.</p>
+      </div>
     </div>
   `;
 
@@ -154,10 +165,20 @@ export function initSimilarFontTab(root) {
   const sizeVal = root.querySelector('#sf-size-val');
   const blendSelect = root.querySelector('#sf-blend');
   const stage = root.querySelector('#sf-stage');
+  const curvesCheckbox = root.querySelector('#sf-curves');
+  const curvesGroup = root.querySelector('#sf-curves-group');
+  const zoomInput = root.querySelector('#sf-zoom');
+  const zoomVal = root.querySelector('#sf-zoom-val');
+  const zoomGroup = root.querySelector('#sf-zoom-group');
 
   function syncModeVisibility() {
     textGroup.hidden = state.mode !== 'word';
     glyphGroup.hidden = state.mode !== 'glyph';
+    // Curve overlay + zoom only make sense for the single-comparison view —
+    // the "all glyphs" grid tiles are too small for either to help.
+    const allMode = state.mode === 'all';
+    curvesGroup.hidden = allMode;
+    zoomGroup.hidden = allMode;
   }
 
   modeSelect.addEventListener('change', () => { state.mode = modeSelect.value; syncModeVisibility(); render(); });
@@ -165,6 +186,12 @@ export function initSimilarFontTab(root) {
   glyphInput.addEventListener('input', () => { state.glyphChar = glyphInput.value.slice(0, 1) || 'g'; render(); });
   sizeInput.addEventListener('input', () => { state.fontSize = Number(sizeInput.value); sizeVal.textContent = state.fontSize; render(); });
   blendSelect.addEventListener('change', () => { state.blend = blendSelect.value; render(); });
+  curvesCheckbox.addEventListener('change', () => { state.showCurves = curvesCheckbox.checked; render(); });
+  zoomInput.addEventListener('input', () => {
+    state.zoom = Number(zoomInput.value);
+    zoomVal.textContent = Math.round(state.zoom * 100);
+    render();
+  });
 
   async function ensureOt() {
     if (!state.fontA || !state.fontB) return false;
@@ -186,16 +213,28 @@ export function initSimilarFontTab(root) {
     for (const layerA of layersA) {
       applyLayerStyle(layerA.path, { mode: a.renderMode, color: a.color, opacity: a.opacity, strokeWidth: a.strokeWidth });
       layerA.svg.style.mixBlendMode = 'normal';
+      // Curve markers are drawn in `currentColor` (see buildCurveMarkers) —
+      // tinting them to each layer's own color keeps on/off-curve points
+      // readable as "this one's Font A, that one's Font B".
+      if (layerA.curveGroup) layerA.curveGroup.style.color = a.color;
     }
     for (const layerB of layersB) {
       applyLayerStyle(layerB.path, { mode: b.renderMode, color: b.color, opacity: b.opacity, strokeWidth: b.strokeWidth });
       layerB.svg.style.mixBlendMode = state.blend;
+      if (layerB.curveGroup) layerB.curveGroup.style.color = b.color;
     }
   }
 
   function renderSingleOverlay(text, fontSize) {
     stage.innerHTML = '';
     const safeText = text && text.length ? text : ' ';
+    // Zoom is a separate multiplier on top of the chosen comparison size —
+    // it exists specifically to inspect Bézier points/handles up close
+    // without changing what "Dimensione glifi" means. Past 100% the result
+    // is allowed to exceed the stage (sf-zoomed drops the usual
+    // max-width/max-height clamp) and gets scrolled instead of shrunk back
+    // down, or zooming in would do nothing.
+    const effectiveSize = fontSize * state.zoom;
     // Wrap onto more lines instead of shrinking the text to fit — using
     // whichever font is wider to decide where each line breaks, so both
     // fonts wrap at the same letter even if their own widths differ.
@@ -204,18 +243,21 @@ export function initSimilarFontTab(root) {
       fontA: state.otA,
       fontB: state.otB,
       text: safeText,
-      fontSize,
+      fontSize: effectiveSize,
       letterSpacingA: state.layers.A.letterSpacing,
       letterSpacingB: state.layers.B.letterSpacing,
       maxWidth,
+      showCurves: state.showCurves,
     });
     styleOverlay(layersA, layersB);
     container.classList.add('sf-single');
+    stage.classList.toggle('sf-zoomed', state.zoom > 1);
     stage.appendChild(container);
   }
 
   function renderAllGlyphs() {
     stage.innerHTML = '';
+    stage.classList.remove('sf-zoomed');
     const charsA = new Set(supportedChars(state.otA));
     const charsB = new Set(supportedChars(state.otB));
     const shared = DEFAULT_CHARSET.filter((c) => charsA.has(c) && charsB.has(c));
