@@ -29,6 +29,8 @@ export function initSimilarFontTab(root) {
     <div class="sf-layout">
       <div class="tab-toolbar">
         <div class="sf-columns" id="sf-columns"></div>
+      </div>
+      <div class="sf-main">
         <div class="sf-general">
           <div class="control-group">
             <label>Modalità</label>
@@ -64,9 +66,9 @@ export function initSimilarFontTab(root) {
             <input type="range" id="sf-zoom" min="0.5" max="6" step="0.1" value="1" />
           </div>
         </div>
-      </div>
-      <div class="sf-stage" id="sf-stage">
-        <p class="sf-placeholder">Scegli due font per iniziare il confronto.</p>
+        <div class="sf-stage" id="sf-stage">
+          <p class="sf-placeholder">Scegli due font per iniziare il confronto.</p>
+        </div>
       </div>
     </div>
   `;
@@ -248,6 +250,11 @@ export function initSimilarFontTab(root) {
       letterSpacingB: state.layers.B.letterSpacing,
       maxWidth,
       showCurves: state.showCurves,
+      // Un-zoomed size, deliberately: keeps the on/off-curve markers at
+      // roughly their normal size while zooming in, instead of ballooning
+      // right along with the glyph and burying the curve they're meant to
+      // reveal (see buildCurveMarkers in glyphRender.js).
+      markerBaseSize: fontSize,
     });
     styleOverlay(layersA, layersB);
     container.classList.add('sf-single');

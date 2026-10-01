@@ -169,12 +169,18 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 }
 .layer-controls input[type="color"] { padding: 2px; width: 44px; height: 30px; }
 
+/* Its own card, sitting right above the stage it controls — not nested
+   inside the font-picker toolbar anymore (see .sf-layout/.sf-main below). */
+.sf-main { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
 .sf-general {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.25rem;
   display: flex;
   flex-wrap: wrap;
   gap: 1rem 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
 }
 .control-group {
   display: flex;
@@ -224,10 +230,12 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   }
   .sf-layout .tab-toolbar {
     margin-bottom: 0;
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
+    /* Deliberately NOT sticky/height-capped: stacking Font A and B
+       vertically here makes the sidebar taller than a typical viewport, and
+       a capped+scrollable box hid the controls below the fold (mode, text,
+       size, blend, curves, zoom) behind an easy-to-miss inner scrollbar.
+       Letting it flow with the page keeps every control reachable with the
+       page's own, obvious scrollbar. */
   }
   /* The sidebar is narrower than the old full-width toolbar, so Font A/B
      stack vertically here instead of squeezing two columns side by side. */

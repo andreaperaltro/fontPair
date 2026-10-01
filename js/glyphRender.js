@@ -107,16 +107,22 @@ export function extractCurvePoints(otPath) {
  * control points, thin lines for their handles — the same breakdown
  * FontForge/Glyphs/the opentype.js glyph-inspector demo draw. Uses
  * `currentColor` throughout, so a caller tints the whole thing just by
- * setting `.style.color` on the returned element (or an ancestor). Marker
- * sizes scale with `fontSize` so they stay legible — and proportionate —
- * at any render size, from a small comparison glyph to a heavily zoomed-in one.
+ * setting `.style.color` on the returned element (or an ancestor).
+ *
+ * `markerSize` is deliberately a SEPARATE number from the glyph's own render
+ * size, clamped to a narrow px range: a real curve-point UI (FontForge,
+ * Glyphs, Illustrator) keeps anchor/handle markers at roughly a constant
+ * on-screen size regardless of zoom, specifically so zooming in reveals more
+ * of the actual outline instead of the markers just growing along with it
+ * and burying the curve under themselves. Callers pass the *un-zoomed*
+ * comparison size here even when the glyph itself is rendered much larger.
  */
-export function buildCurveMarkers(otPath, fontSize) {
+export function buildCurveMarkers(otPath, markerSize) {
   const { onCurve, offCurve, handles } = extractCurvePoints(otPath);
   const g = el('g', { class: 'bezier-overlay' });
-  const dot = Math.max(fontSize * 0.016, 2.4);
-  const sq = dot * 1.3;
-  const lineW = Math.max(fontSize * 0.0035, 0.6);
+  const dot = Math.min(Math.max(markerSize * 0.012, 1.8), 4.5);
+  const sq = dot * 0.9;
+  const lineW = Math.min(Math.max(markerSize * 0.0018, 0.5), 1.4);
   for (const [a, b] of handles) {
     g.appendChild(el('line', {
       x1: a.x, y1: a.y, x2: b.x, y2: b.y,
@@ -129,7 +135,7 @@ export function buildCurveMarkers(otPath, fontSize) {
   for (const p of onCurve) {
     g.appendChild(el('rect', {
       x: p.x - sq, y: p.y - sq, width: sq * 2, height: sq * 2,
-      fill: 'white', stroke: 'currentColor', 'stroke-width': lineW * 1.8,
+      fill: 'white', stroke: 'currentColor', 'stroke-width': Math.max(lineW * 1.6, 0.8),
     }));
   }
   return g;
@@ -232,7 +238,7 @@ export function boundingBoxFor(otFont, text, fontSize, letterSpacing = 0) {
  * stroke, curve-marker tint) without re-laying-out. `curveGroup` is only
  * present when `showCurves` is true.
  */
-export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, letterSpacingA = 0, letterSpacingB = 0, maxWidth = 0, showCurves = false }) {
+export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, letterSpacingA = 0, letterSpacingB = 0, maxWidth = 0, showCurves = false, markerBaseSize = fontSize }) {
   const lines = computeSharedLines({ fontA, fontB, text, fontSize, letterSpacingA, letterSpacingB, maxWidth });
   const multiline = lines.length > 1;
 
@@ -273,7 +279,9 @@ export function buildOverlay({ fontA, fontB, text, fontSize, padding = 24, lette
       svg.appendChild(path);
       let curveGroup = null;
       if (showCurves) {
-        curveGroup = buildCurveMarkers(otPath, fontSize);
+        // markerBaseSize (not fontSize, which may already be zoomed) keeps
+        // marker size roughly constant while zooming — see buildCurveMarkers.
+        curveGroup = buildCurveMarkers(otPath, markerBaseSize);
         svg.appendChild(curveGroup);
       }
       return { svg, path, curveGroup };
