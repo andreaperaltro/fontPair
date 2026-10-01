@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Regenerates data/google-fonts.json with the FULL current Google Fonts
-// catalog (~2000 families), sorted by popularity. Run this from your own
-// machine (not from a restricted CI sandbox) whenever you want the picker
-// to reflect the very latest Google Fonts additions:
+// Regenerates public/data/google-fonts.json with the FULL current Google
+// Fonts catalog (~2000 families), sorted alphabetically. Run this from your
+// own machine (not from a restricted CI sandbox) whenever you want the
+// picker to reflect the very latest Google Fonts additions:
 //
 //   node scripts/update-google-fonts.mjs
 //
@@ -13,7 +13,7 @@ import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const OUT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'google-fonts.json');
+const OUT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data', 'google-fonts.json');
 
 async function main() {
   const res = await fetch('https://fonts.google.com/metadata/fonts');

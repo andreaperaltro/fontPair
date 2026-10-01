@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 60 9% 98%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 240 6% 10%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 5% 94%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 60 5% 94%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 60 5% 94%;
+    --accent-foreground: 240 6% 10%;
+    --destructive: 6 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 4% 89%;
+    --input: 60 4% 89%;
+    --ring: 240 6% 10%;
+    --radius: 0.65rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 240 6% 7%;
+      --foreground: 60 5% 95%;
+      --card: 240 5% 11%;
+      --card-foreground: 60 5% 95%;
+      --popover: 240 5% 11%;
+      --popover-foreground: 60 5% 95%;
+      --primary: 60 5% 95%;
+      --primary-foreground: 240 6% 10%;
+      --secondary: 240 4% 16%;
+      --secondary-foreground: 60 5% 95%;
+      --muted: 240 4% 16%;
+      --muted-foreground: 240 4% 64%;
+      --accent: 240 4% 16%;
+      --accent-foreground: 60 5% 95%;
+      --destructive: 6 55% 55%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 240 4% 20%;
+      --input: 240 4% 20%;
+      --ring: 60 5% 85%;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Glyph-rendering overlay: produced imperatively by src/lib/glyphRender.js
+   (raw SVG/DOM nodes, mounted via a ref) — kept as plain CSS rather than
+   Tailwind utility classes since those nodes are built outside JSX. */
+
+.overlay-stack {
+  position: relative;
+  isolation: isolate;
+}
+.overlay-layer {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  height: auto;
+}
+.sf-stage.sf-zoomed .overlay-layer {
+  max-width: none;
+  max-height: none;
+}
+.sf-stage.sf-zoomed {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.bezier-overlay {
+  pointer-events: none;
+}
+.overlay-stack .overlay-layer:nth-child(2) {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.overlay-multiline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sf-stage {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.sf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+.sf-tile {
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: hsl(var(--muted) / 0.4);
+  padding: 4px;
+  cursor: pointer;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.sf-tile:hover {
+  border-color: hsl(var(--ring));
+}
+.sf-tile .overlay-stack {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sf-tile .overlay-layer {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.glyph-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 1.3rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 0.6rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.glyph-cell {
+  width: 2em;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+.glyph-cell:hover {
+  background: hsl(var(--muted));
+}
+
+.role-preview-text {
+  overflow-wrap: anywhere;
+  outline: none;
+  border-radius: 4px;
+  padding: 0.1em 0.2em;
+  margin: -0.1em -0.2em;
+}
+.role-preview-text:hover {
+  background: hsl(var(--muted) / 0.6);
+}
+.role-preview-text:focus {
+  background: hsl(var(--muted));
+}

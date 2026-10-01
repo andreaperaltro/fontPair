@@ -288,7 +288,7 @@ export function googleFontEntry(family, { weight = 400, italic = false } = {}) {
 let _catalogPromise = null;
 export function loadGoogleFontsCatalog() {
   if (!_catalogPromise) {
-    _catalogPromise = fetch('data/google-fonts.json').then((r) => r.json());
+    _catalogPromise = fetch('/data/google-fonts.json').then((r) => r.json());
   }
   return _catalogPromise;
 }
