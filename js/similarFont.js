@@ -274,7 +274,13 @@ export function initSimilarFontTab(root) {
     }
     const grid = document.createElement('div');
     grid.className = 'sf-grid';
-    const tileSize = Math.max(50, Math.min(state.fontSize / 1.6, 160));
+    // The grid adapts to the chosen size, not the other way around — each
+    // tile is sized to fit the glyph at this size, so turning "Dimensione
+    // glifi" up gives fewer, bigger tiles per row instead of squeezing the
+    // same size glyph into a fixed-size box (the old `min(…, 160)` cap made
+    // the slider look like it did nothing past a certain point).
+    const tileSize = Math.max(50, state.fontSize / 1.6);
+    grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${Math.round(tileSize + 20)}px, 1fr))`;
     for (const ch of shared) {
       const tile = document.createElement('button');
       tile.type = 'button';

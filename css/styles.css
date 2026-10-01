@@ -475,8 +475,14 @@ main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
   overflow: hidden;
 }
 .sf-tile:hover { border-color: var(--accent); }
-.sf-tile .overlay-stack { width: 100%; height: 100%; }
-.sf-tile .overlay-layer { width: 100%; height: 100%; }
+.sf-tile .overlay-stack { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+/* Fit within the tile at its own true aspect ratio instead of being
+   stretched to fill a square box — forcing width/height:100% here is what
+   made the "Dimensione glifi" slider look like it did nothing in "Tutti i
+   glifi": every glyph was stretched to the same fixed tile regardless of
+   the size it was actually rendered at. The tile itself now sizes to the
+   chosen glyph size instead (see the grid's inline grid-template-columns). */
+.sf-tile .overlay-layer { max-width: 100%; max-height: 100%; width: auto; height: auto; }
 
 /* --- Font Pair tab --- */
 .fpair-section {
